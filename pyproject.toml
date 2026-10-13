@@ -24,6 +24,10 @@ dependencies = [
   "platformdirs>=4",
 ]
 
+[project.urls]
+Homepage = "https://github.com/efelazut/mailmcp"
+Issues = "https://github.com/efelazut/mailmcp/issues"
+
 [project.optional-dependencies]
 dev = ["pytest>=8", "aiosmtpd>=1.4", "aioimaplib>=2.0", "pytz", "tzlocal"]
 

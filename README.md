@@ -124,7 +124,7 @@ credentials only in the OS keychain.
 ## Development
 
 ```bash
-git clone https://github.com/<you>/mailmcp && cd mailmcp
+git clone https://github.com/efelazut/mailmcp && cd mailmcp
 uv venv && uv pip install -e ".[dev]"
 uv run pytest
 ```
