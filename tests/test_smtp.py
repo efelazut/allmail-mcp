@@ -1,6 +1,7 @@
 """SMTP backend against a local aiosmtpd server (plaintext allowed only via the test env var)."""
 from __future__ import annotations
 
+import socket
 import smtplib
 from email import message_from_bytes, policy
 
@@ -34,6 +35,8 @@ def authenticator(server, session, envelope, mechanism, auth_data):
 @pytest.fixture
 def smtp_server(monkeypatch):
     monkeypatch.setenv("MAILMCP_ALLOW_PLAINTEXT_FOR_TESTS", "1")
+    # smtplib EHLO calls socket.getfqdn(), slow reverse DNS on macOS CI runners.
+    monkeypatch.setattr(socket, "getfqdn", lambda name="": "localhost")
     handler = Capture()
     port = free_port()
     controller = Controller(handler, hostname="127.0.0.1", port=port, authenticator=authenticator,
@@ -90,6 +93,8 @@ def test_bad_password_gives_friendly_error_without_secret(account, smtp_server):
 
 def test_connection_refused_is_friendly(make_account, monkeypatch):
     monkeypatch.setenv("MAILMCP_ALLOW_PLAINTEXT_FOR_TESTS", "1")
+    # smtplib EHLO calls socket.getfqdn(), slow reverse DNS on macOS CI runners.
+    monkeypatch.setattr(socket, "getfqdn", lambda name="": "localhost")
     acc = make_account(smtp_host="127.0.0.1", smtp_port=free_port(), smtp_security="plain")
     msg = compose.build_message(acc, "a@example.com", "s", "b")
     with pytest.raises(MailServerError, match="Cannot reach"):

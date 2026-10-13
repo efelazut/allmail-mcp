@@ -1,6 +1,7 @@
 """End-to-end: App tools against the mock IMAP server and a local SMTP server, approvals over real HTTP."""
 from __future__ import annotations
 
+import socket
 import json
 import re
 import subprocess
@@ -32,6 +33,8 @@ class Sink:
 @pytest.fixture
 def smtp_sink(monkeypatch):
     monkeypatch.setenv("MAILMCP_ALLOW_PLAINTEXT_FOR_TESTS", "1")
+    # smtplib EHLO calls socket.getfqdn(), slow reverse DNS on macOS CI runners.
+    monkeypatch.setattr(socket, "getfqdn", lambda name="": "localhost")
     sink = Sink()
     port = free_port()
     ctl = Controller(sink, hostname="127.0.0.1", port=port, auth_require_tls=False, ready_timeout=30, server_hostname="localhost",
