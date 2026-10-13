@@ -27,3 +27,15 @@ class MailServerError(MailMcpError):
 
 class ComposeError(MailMcpError):
     """Invalid recipients or message fields."""
+
+
+class InvalidActionToken(MailMcpError):
+    """Unknown action id, wrong token, or token no longer valid."""
+
+
+class ActionNotPending(MailMcpError):
+    """Action already approved/done/rejected/expired."""
+
+
+class UsageError(MailMcpError):
+    """Bad command line usage (unknown client, bad --command)."""
