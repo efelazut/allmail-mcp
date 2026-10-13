@@ -37,7 +37,7 @@ def smtp_server(monkeypatch):
     handler = Capture()
     port = free_port()
     controller = Controller(handler, hostname="127.0.0.1", port=port, authenticator=authenticator,
-                            auth_required=True, auth_require_tls=False, ready_timeout=30)
+                            auth_required=True, auth_require_tls=False, ready_timeout=30, server_hostname="localhost")
     controller.start()
     handler.port = port
     yield handler

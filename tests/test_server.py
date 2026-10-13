@@ -34,7 +34,7 @@ def smtp_sink(monkeypatch):
     monkeypatch.setenv("MAILMCP_ALLOW_PLAINTEXT_FOR_TESTS", "1")
     sink = Sink()
     port = free_port()
-    ctl = Controller(sink, hostname="127.0.0.1", port=port, auth_require_tls=False, ready_timeout=30,
+    ctl = Controller(sink, hostname="127.0.0.1", port=port, auth_require_tls=False, ready_timeout=30, server_hostname="localhost",
                      authenticator=lambda *a: __import__("aiosmtpd.smtp").smtp.AuthResult(success=True))
     ctl.start()
     sink.port = port
