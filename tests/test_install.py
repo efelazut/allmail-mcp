@@ -3,7 +3,9 @@ import tomllib
 
 import pytest
 
-from mailmcp import install
+from mailmcp import __version__, install
+
+PINNED = f"mailmcp@{__version__}"
 from mailmcp.errors import UsageError
 
 
@@ -28,7 +30,7 @@ def jload(p):
 
 
 def baks(path):
-    return list(path.parent.glob(path.name + ".bak-mailmcp-*"))
+    return list(path.parent.glob(path.name + ".bak-mailmcp*"))
 
 
 def test_targets_paths_and_detection(home):
@@ -84,7 +86,7 @@ def test_json_fresh_file_simple_entry(home, key, rel, monkeypatch):
     assert ch[0].action == "add"
     lines = install.apply(ch)
     assert any("added" in l for l in lines)
-    assert jload(p) == {"mcpServers": {"mail": {"command": "uvx", "args": ["mailmcp"]}}}
+    assert jload(p) == {"mcpServers": {"mail": {"command": "uvx", "args": [PINNED]}}}
     assert baks(p) == []  # nothing to back up for a new file
 
 
@@ -98,7 +100,7 @@ def test_claude_entry_shape_and_other_content_preserved(home):
     install.apply(install.plan(["claude"], home=home))
     data = jload(p)
     assert data["mcpServers"]["other"] == original["mcpServers"]["other"]
-    assert data["mcpServers"]["mail"] == {"type": "stdio", "command": "uvx", "args": ["mailmcp"], "env": {}}
+    assert data["mcpServers"]["mail"] == {"type": "stdio", "command": "uvx", "args": [PINNED], "env": {}}
     assert list(data) == list(original)  # key order kept
     assert data["zeta"] == "ünï" and data["projects"] == original["projects"]
     assert "ünï" in p.read_text(encoding="utf-8")  # ensure_ascii=False
@@ -121,7 +123,7 @@ def test_json_idempotent_unchanged(home):
 def test_json_update_preserves_unknown_fields(home):
     p = home / ".cursor" / "mcp.json"
     p.parent.mkdir()
-    p.write_text(json.dumps({"mcpServers": {"mail": {"command": "old", "args": ["x"], "env": {"A": "1"},
+    p.write_text(json.dumps({"mcpServers": {"mail": {"command": "old", "args": ["mailmcp-old"], "env": {"A": "1"},
                                                     "disabled": False}}}))
     ch = install.plan(["cursor"], command=["python", "-m", "mailmcp"], home=home)
     assert ch[0].action == "update"
@@ -134,7 +136,7 @@ def test_json_update_preserves_unknown_fields(home):
 def test_json_remove_only_ours(home):
     p = home / ".cursor" / "mcp.json"
     p.parent.mkdir()
-    p.write_text(json.dumps({"x": 1, "mcpServers": {"mail": {"command": "uvx"}, "keep": {"command": "k"}}}))
+    p.write_text(json.dumps({"x": 1, "mcpServers": {"mail": {"command": "uvx", "args": ["mailmcp"]}, "keep": {"command": "k"}}}))
     ch = install.plan(["cursor"], remove=True, home=home)
     assert ch[0].action == "remove"
     install.apply(ch)
@@ -187,7 +189,7 @@ def test_toml_fresh_file(home):
     assert ch[0].action == "add"
     install.apply(ch)
     data = tomllib.loads(p.read_text())
-    assert data["mcp_servers"]["mail"] == {"command": "uvx", "args": ["mailmcp"], "startup_timeout_sec": 60}
+    assert data["mcp_servers"]["mail"] == {"command": "uvx", "args": [PINNED], "startup_timeout_sec": 60}
 
 
 def test_toml_append_keeps_existing(home):
@@ -218,7 +220,7 @@ def test_toml_update_replaces_only_our_table(home):
     p = codex_path(home)
     p.write_text(
         '[mcp_servers.a]\ncommand = "a"\n\n'
-        '[mcp_servers.mail]\ncommand = "old"\nargs = ["x", "y"]\nenv_vars = ["K"]\n\n'
+        '[mcp_servers.mail]\ncommand = "old"\nargs = ["mailmcp", "y"]\nenv_vars = ["K"]\n\n'
         '[mcp_servers.mail.env]\nFOO = "1"\n\n'
         '[mcp_servers.z]\ncommand = "z"\n', encoding="utf-8")
     ch = install.plan(["codex"], command=["uvx", "mailmcp", "--x"], home=home)
@@ -233,7 +235,7 @@ def test_toml_update_replaces_only_our_table(home):
 def test_toml_remove_with_subtables(home):
     p = codex_path(home)
     p.write_text(
-        '[mcp_servers.a]\ncommand = "a"\n\n[mcp_servers.mail]\ncommand = "m"\n\n'
+        '[mcp_servers.a]\ncommand = "a"\n\n[mcp_servers.mail]\ncommand = "mailmcp"\n\n'
         '[mcp_servers.mail.env]\nFOO = "1"\n\n[mcp_servers.z]\ncommand = "z"\n', encoding="utf-8")
     ch = install.plan(["codex"], remove=True, home=home)
     assert ch[0].action == "remove"
@@ -292,13 +294,68 @@ def test_toml_validation_failure_restores_backup(home, monkeypatch):
     calls = {"n": 0}
     real = install._mail_table
 
-    def flaky(text):
+    def flaky(text, *a):
         calls["n"] += 1
         if "[mcp_servers.mail]" in text and calls["n"] > 2:
             raise ValueError("boom")
-        return real(text)
+        return real(text, *a)
 
     monkeypatch.setattr(install, "_mail_table", flaky)
     lines = install.apply(ch)
     assert "restored" in lines[0]
     assert p.read_text() == src
+
+
+def test_default_command_is_version_pinned():
+    assert install.DEFAULT_COMMAND == ["uvx", f"mailmcp@{__version__}"]
+
+
+def test_foreign_json_entry_not_touched(home):
+    p = home / ".cursor" / "mcp.json"
+    p.parent.mkdir()
+    text = json.dumps({"mcpServers": {"mail": {"command": "evil", "args": ["--steal"]}}})
+    p.write_text(text)
+    for remove in (False, True):
+        ch = install.plan(["cursor"], remove=remove, home=home)
+        assert ch[0].action == "unchanged"
+        assert "already exists and is not mailmcp" in ch[0].error
+        assert "skipped" in install.apply(ch)[0]
+    assert p.read_text() == text and baks(p) == []
+
+
+def test_foreign_toml_entry_not_touched(home):
+    p = codex_path(home)
+    text = '[mcp_servers.mail]\ncommand = "other"\nargs = ["x"]\n'
+    p.write_text(text, encoding="utf-8")
+    ch = install.plan(["codex"], home=home)
+    assert "is not mailmcp" in ch[0].error
+    install.apply(ch)
+    assert p.read_text(encoding="utf-8") == text and baks(p) == []
+
+
+def test_custom_name_coexists_with_foreign_entry(home):
+    p = home / ".cursor" / "mcp.json"
+    p.parent.mkdir()
+    p.write_text(json.dumps({"mcpServers": {"mail": {"command": "other"}}}))
+    ch = install.plan(["cursor"], home=home, name="mailmcp")
+    assert ch[0].action == "add" and not ch[0].error
+    install.apply(ch)
+    servers = jload(p)["mcpServers"]
+    assert servers["mail"] == {"command": "other"} and servers["mailmcp"]["args"] == [PINNED]
+    c = codex_path(home)
+    install.apply(install.plan(["codex"], home=home, name="mailmcp"))
+    assert tomllib.loads(c.read_text(encoding="utf-8"))["mcp_servers"]["mailmcp"]["args"] == [PINNED]
+
+
+def test_single_backup_overwritten_and_claude_hint(home):
+    p = home / ".claude.json"
+    p.write_text(json.dumps({"a": 1}))
+    install.apply(install.plan(["claude"], home=home))
+    first = (home / ".claude.json.bak-mailmcp").read_text()
+    assert json.loads(first) == {"a": 1}
+    p.write_text(json.dumps({"a": 2, "mcpServers": {"mail": {"command": "uvx", "args": ["mailmcp@0.0.1"]}}}))
+    lines = install.apply(install.plan(["claude"], home=home))
+    assert len(baks(p)) == 1 and json.loads(baks(p)[0].read_text())["a"] == 2
+    assert any("Close" not in ln and "close Claude Code before installing" in ln for ln in lines)
+    other = install.apply(install.plan(["cursor"], home=home, name="mail"))
+    assert not any("before installing" in ln for ln in other)

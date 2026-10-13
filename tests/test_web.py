@@ -38,12 +38,15 @@ class Env:
         return {"provider": "gmail", "imap_host": "imap.gmail.com", "imap_port": 993,
                 "imap_security": "ssl", "smtp_host": "smtp.gmail.com", "smtp_port": 465,
                 "smtp_security": "ssl", "app_password_url": "https://myaccount.google.com/apppasswords",
-                "notes": "Needs 2-Step"}
+                "notes": "Needs 2-Step", "notes_tr": "2 Adımlı Doğrulama <gerekli>"}
 
     def req(self, method, path, body=None, headers=None, host=None):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
         h = {"Host": host or f"127.0.0.1:{self.port}"}
+        if method == "POST":
+            h["Origin"] = f"http://127.0.0.1:{self.port}"
         h.update(headers or {})
+        h = {k: v for k, v in h.items() if v is not None}  # None removes a default header
         if isinstance(body, dict):
             body = urllib.parse.urlencode(body)
             h.setdefault("Content-Type", "application/x-www-form-urlencoded")
@@ -102,7 +105,7 @@ def test_approval_page_content_and_headers(env):
     assert h["content-security-policy"] == ("default-src 'none'; style-src 'unsafe-inline'; "
                                             "form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
     assert h["x-frame-options"] == "DENY"
-    assert h["referrer-policy"] == "no-referrer"
+    assert h["referrer-policy"] == "same-origin"  # no-referrer would make browsers send Origin: null
     assert h["x-content-type-options"] == "nosniff"
     assert h["cache-control"] == "no-store"
     assert 'name="action" value="approve"' in body and 'name="action" value="reject"' in body
@@ -124,7 +127,14 @@ def test_trash_and_settings_pages(env):
     s = env.store.create("settings", None, {}, {"changes": [
         {"setting": "send_approval", "from": True, "to": False}]})
     _, _, body = env.req("GET", url_of(env, s))
-    assert "send_approval" in body and "LOOSENS" in body
+    assert "Approval before sending" in body and "send_approval" not in body and "LOOSENS" in body
+    _, _, body = env.req("GET", url_of(env, s), headers={"Accept-Language": "tr"})
+    assert "Göndermeden önce onay" in body
+    u = env.store.create("settings", None, {}, {"changes": [
+        {"setting": "trash_approval", "from": True, "to": False},
+        {"setting": "mystery_<b>", "to": 1}]})
+    _, _, body = env.req("GET", url_of(env, u))
+    assert "Approval before moving to Trash" in body and "mystery_&lt;b&gt;" in body
 
 
 def test_host_header_attack_rejected(env):
@@ -145,11 +155,30 @@ def test_cross_origin_post_rejected(env):
     for origin in ("http://evil.com", "null", f"http://evil.com:{env.port}", f"https://127.0.0.1:{env.port}"):
         st, _, _ = env.req("POST", f"/a/{a.id}", {"t": a.token, "action": "approve"},
                            headers={"Origin": origin})
-        assert st == 400, origin
+        assert st == 403, origin
     assert not env.sent and a.status == "pending"
     st, _, _ = env.req("POST", f"/a/{a.id}", {"t": a.token, "action": "approve"},
                        headers={"Origin": f"http://127.0.0.1:{env.port}"})
     assert st == 200 and env.sent == [a.id]
+
+
+def test_missing_origin_and_bad_sec_fetch_site_rejected(env):
+    a = send_action(env)
+    form = {"t": a.token, "action": "approve"}
+    assert env.req("POST", f"/a/{a.id}", form, headers={"Origin": None})[0] == 403
+    for site in ("cross-site", "same-site", "none"):
+        assert env.req("POST", f"/a/{a.id}", form, headers={"Sec-Fetch-Site": site})[0] == 403
+    assert env.req("POST", "/add", {"t": "x"}, headers={"Origin": None})[0] == 403
+    assert not env.sent and a.status == "pending"
+    assert env.req("POST", f"/a/{a.id}", form, headers={"Sec-Fetch-Site": "same-origin"})[0] == 200
+    assert env.sent == [a.id]
+
+
+def test_recipients_are_bidi_isolated(env):
+    a = send_action(env)
+    _, _, body = env.req("GET", url_of(env, a))
+    assert body.count("unicode-bidi:isolate") >= 4
+    assert "<bdi" in body
 
 
 def test_wrong_content_type_and_oversize(env):
@@ -265,7 +294,10 @@ def test_add_form_and_lookup(env):
     assert "imap.gmail.com" in body and 'value="me@gmail.com"' in body
     assert 'href="https://myaccount.google.com/apppasswords"' in body
     assert 'rel="noopener noreferrer"' in body and 'target="_blank"' in body
-    assert "Needs 2-Step" in body
+    assert "Needs 2-Step" in body and "Step 2: add your account" in body
+    assert "2 Adımlı" not in body
+    _, _, body = env.req("GET", u + "&email=me%40gmail.com", headers={"Accept-Language": "tr"})
+    assert "2 Adımlı Doğrulama &lt;gerekli&gt;" in body and "Needs 2-Step" not in body
     st, _, body = env.req("GET", u + "&email=bad%40x.com")
     assert "Lookup failed &lt;b&gt;" in body
 
@@ -281,7 +313,7 @@ def test_add_cross_origin_and_host_rejected(env):
     u = add_url(env)
     tok = u.split("t=")[1]
     f = {"t": tok, "email": "a@b.com", "password": "pw"}
-    assert env.req("POST", "/add", f, headers={"Origin": "http://evil.com"})[0] == 400
+    assert env.req("POST", "/add", f, headers={"Origin": "http://evil.com"})[0] == 403
     assert env.req("POST", "/add", f, host="evil.com")[0] == 400
     assert not env.adds
 
@@ -344,6 +376,7 @@ def test_add_turkish(env):
     u = add_url(env)
     _, _, body = env.req("GET", u, headers={"Accept-Language": "tr"})
     assert "Posta hesabı ekle" in body and "Ayarları bul" in body
+    assert "2. adım: hesabını ekle" in body
 
 
 def test_add_unexpected_error_generic(env):

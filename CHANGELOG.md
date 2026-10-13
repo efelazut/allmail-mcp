@@ -1,0 +1,30 @@
+# Changelog
+
+All notable changes to this project are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
+adheres to [Semantic Versioning](https://semver.org/).
+
+## [0.1.0] - Unreleased
+
+### Added
+- MCP stdio server with ten tools: `accounts_list`, `account_add`, `folders_list`,
+  `mail_search`, `mail_read`, `draft_create`, `request_send`, `request_trash`,
+  `action_status`, `settings`.
+- Multiple accounts across providers: Gmail, iCloud, Yandex, Zoho, Fastmail, Yahoo, GMX, AOL,
+  Mail.ru and any IMAP/SMTP host (built-in table, then Mozilla autoconfig, then manual entry).
+- Search one account or all accounts at once; Gmail search syntax on Gmail.
+- Local add-account page on `127.0.0.1`; passwords verified over IMAP and stored only in the
+  OS keyring. Refuses to run without a secure keyring backend.
+- Server-enforced human approval page for sending and trashing, showing the real message.
+- Approval settings that can be tightened instantly but need a click to loosen.
+- Untrusted-content fencing with a random nonce and removal of hidden HTML.
+- Non-destructive reads (`BODY.PEEK`); trash only, never permanent delete.
+- Hardened local web server: random port, Host/Origin checks, single-use expiring tokens,
+  strict CSP, no JavaScript. English and Turkish pages.
+- CLI: `install`, `uninstall` (Claude Code, Codex, Cursor, Antigravity, Gemini CLI, with
+  backups and `--dry-run`), `add-account`, `accounts`, `remove-account`, `doctor`.
+- Optional Agent Skill in `skill/mailmcp/SKILL.md`.
+- English and Turkish READMEs, SECURITY.md, INSTALL.md for agents.
+
+### Not yet
+- Outlook / Hotmail / Live (planned for v0.2).

@@ -158,3 +158,12 @@ def test_guess():
     assert (s.imap_host, s.imap_port, s.imap_security) == ("imap.example.org", 993, "ssl")
     assert (s.smtp_host, s.smtp_port, s.smtp_security) == ("smtp.example.org", 465, "ssl")
     assert s.source == "guess"
+
+
+def test_every_builtin_has_turkish_notes():
+    for d in ("gmail.com", "icloud.com", "yandex.com", "zoho.com", "fastmail.com", "yahoo.com",
+              "gmx.com", "gmx.net", "aol.com", "mail.ru"):
+        s = providers.lookup("a@" + d)
+        assert s.notes and s.notes_tr and s.notes_tr != s.notes, d
+    assert "2 Adımlı Doğrulama" in providers.lookup("a@gmail.com").notes_tr
+    assert providers.guess("a@example.com").notes_tr is None

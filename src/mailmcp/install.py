@@ -9,14 +9,13 @@ import shutil
 import tempfile
 import tomllib
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 
+from . import __version__
 from .errors import UsageError
 
-DEFAULT_COMMAND = ["uvx", "mailmcp"]
+DEFAULT_COMMAND = ["uvx", f"mailmcp@{__version__}"]
 SERVER_NAME = "mail"
-_TOML_TABLE = f"mcp_servers.{SERVER_NAME}"
 _STARTUP_TIMEOUT = 60
 
 
@@ -37,6 +36,7 @@ class PlannedChange:
     after: str          # relevant snippet after
     error: str | None = None
     command: list[str] = field(default_factory=lambda: list(DEFAULT_COMMAND))
+    name: str = SERVER_NAME
 
 
 # --------------------------------------------------------------------------- targets
@@ -87,7 +87,19 @@ def _snippet(entry) -> str:
     return "(none)" if entry is None else json.dumps(entry, indent=2, ensure_ascii=False)
 
 
-def _compute_json(target: ClientTarget, command: list[str], remove: bool):
+def _looks_like_ours(entry) -> bool:
+    """True when an existing server entry plausibly launches mailmcp."""
+    if not isinstance(entry, dict):
+        return False
+    args = entry.get("args")
+    parts = [str(entry.get("command", ""))] + ([str(a) for a in args] if isinstance(args, list) else [])
+    return "mailmcp" in " ".join(parts).lower()
+
+
+_FOREIGN = "an MCP server named '{name}' already exists and is not mailmcp; remove or rename it first"
+
+
+def _compute_json(target: ClientTarget, command: list[str], remove: bool, name: str = SERVER_NAME):
     """Return (action, before, after, new_text | None, error)."""
     path = target.path
     data: dict = {}
@@ -106,14 +118,16 @@ def _compute_json(target: ClientTarget, command: list[str], remove: bool):
     servers = data.get("mcpServers")
     if servers is not None and not isinstance(servers, dict):
         return "unchanged", "", "", None, f"'mcpServers' in {path} is not an object; left untouched"
-    current = (servers or {}).get(SERVER_NAME)
+    current = (servers or {}).get(name)
     before = _snippet(current)
+    if current is not None and not _looks_like_ours(current):
+        return "unchanged", before, before, None, _FOREIGN.format(name=name)
 
     if remove:
         if current is None:
             return "unchanged", before, before, None, None
         new = copy.deepcopy(data)
-        del new["mcpServers"][SERVER_NAME]
+        del new["mcpServers"][name]
         return "remove", before, "(none)", _dump_json(new), None
 
     desired = _desired_json(target, command)
@@ -129,7 +143,7 @@ def _compute_json(target: ClientTarget, command: list[str], remove: bool):
     new = copy.deepcopy(data)
     if not isinstance(new.get("mcpServers"), dict):
         new["mcpServers"] = {}
-    new["mcpServers"][SERVER_NAME] = merged
+    new["mcpServers"][name] = merged
     return ("add" if current is None else "update"), before, after, _dump_json(new), None
 
 
@@ -180,8 +194,8 @@ def _header_name(line: str) -> str | None:
     return ".".join(parts)
 
 
-def _is_ours(name: str | None) -> bool:
-    return name is not None and (name == _TOML_TABLE or name.startswith(_TOML_TABLE + "."))
+def _is_ours(name: str | None, table: str) -> bool:
+    return name is not None and (name == table or name.startswith(table + "."))
 
 
 def _split_segments(lines: list[str]) -> list[tuple[str | None, list[str]]]:
@@ -202,17 +216,19 @@ def _strip_trailing_blank(lines: list[str]) -> list[str]:
     return lines
 
 
-def _mail_table(text: str):
+def _mail_table(text: str, name: str = SERVER_NAME):
     data = tomllib.loads(text)
     servers = data.get("mcp_servers")
     if servers is None:
         return None
     if not isinstance(servers, dict):
         raise ValueError("'mcp_servers' is not a table")
-    return servers.get(SERVER_NAME)
+    return servers.get(name)
 
 
-def _compute_toml(target: ClientTarget, command: list[str], remove: bool):
+def _compute_toml(target: ClientTarget, command: list[str], remove: bool, name: str = SERVER_NAME):
+    table = f"mcp_servers.{_toml_key(name)}"
+    norm = f"mcp_servers.{name}"
     path = target.path
     text = ""
     if path.exists():
@@ -221,25 +237,27 @@ def _compute_toml(target: ClientTarget, command: list[str], remove: bool):
         except (OSError, UnicodeDecodeError) as e:
             return "unchanged", "", "", None, f"cannot read {path}: {e}"
     try:
-        current = _mail_table(text)
+        current = _mail_table(text, name)
     except (tomllib.TOMLDecodeError, ValueError) as e:
         return "unchanged", "", "", None, f"{path} is not valid TOML ({e}); left untouched"
     if current is not None and not isinstance(current, dict):
-        return "unchanged", "", "", None, f"'mcp_servers.{SERVER_NAME}' in {path} is not a table; left untouched"
+        return "unchanged", "", "", None, f"'mcp_servers.{name}' in {path} is not a table; left untouched"
 
     nl = "\r\n" if "\r\n" in text else "\n"
+    if current is not None and not _looks_like_ours(current):
+        return "unchanged", "", "", None, _FOREIGN.format(name=name)
     segs = _split_segments(text.splitlines(keepends=True))
-    main_idx = next((i for i, (n, _) in enumerate(segs) if n == _TOML_TABLE), None)
-    if current is not None and not any(_is_ours(n) for n, _ in segs):
+    main_idx = next((i for i, (n, _) in enumerate(segs) if n == norm), None)
+    if current is not None and not any(_is_ours(n, norm) for n, _ in segs):
         return ("unchanged", "", "", None,
-                f"'{SERVER_NAME}' in {path} uses a layout this tool will not edit; left untouched")
+                f"'{name}' in {path} uses a layout this tool will not edit; left untouched")
 
     before = "".join(segs[main_idx][1]).strip() if main_idx is not None else "(none)"
 
     if remove:
-        if not any(_is_ours(n) for n, _ in segs):
+        if not any(_is_ours(n, norm) for n, _ in segs):
             return "unchanged", before, before, None, None
-        kept = [s for s in segs if not _is_ours(s[0])]
+        kept = [s for s in segs if not _is_ours(s[0], norm)]
         new_text = "".join("".join(ls) for _, ls in kept)
         new_text = "".join(_strip_trailing_blank(new_text.splitlines(keepends=True)))
         if new_text and not new_text.endswith("\n"):
@@ -251,13 +269,13 @@ def _compute_toml(target: ClientTarget, command: list[str], remove: bool):
     merged = {**scalars, **desired}
     if current is not None and main_idx is not None and merged == scalars:
         return "unchanged", before, before, None, None
-    block_lines = [f"[{_TOML_TABLE}]"] + [f"{_toml_key(k)} = {_toml_value(v)}" for k, v in merged.items()]
+    block_lines = [f"[{table}]"] + [f"{_toml_key(k)} = {_toml_value(v)}" for k, v in merged.items()]
     block = nl.join(block_lines) + nl
     after = block.strip()
 
     if main_idx is not None:
         is_last = main_idx == len(segs) - 1
-        segs[main_idx] = (_TOML_TABLE, [block] + ([] if is_last else [nl]))
+        segs[main_idx] = (norm, [block] + ([] if is_last else [nl]))
         new_text = "".join("".join(ls) for _, ls in segs)
         action = "update"
     else:
@@ -269,7 +287,7 @@ def _compute_toml(target: ClientTarget, command: list[str], remove: bool):
         new_text += block
         action = "add"
     try:
-        check = _mail_table(new_text)
+        check = _mail_table(new_text, name)
     except (tomllib.TOMLDecodeError, ValueError) as e:
         return "unchanged", before, after, None, f"edit would produce invalid TOML ({e}); left untouched"
     if not isinstance(check, dict) or any(check.get(k) != v for k, v in desired.items()):
@@ -279,18 +297,20 @@ def _compute_toml(target: ClientTarget, command: list[str], remove: bool):
 
 # --------------------------------------------------------------------------- plan / apply
 
-def _compute(target: ClientTarget, command: list[str], remove: bool):
+def _compute(target: ClientTarget, command: list[str], remove: bool, name: str = SERVER_NAME):
     if target.fmt == "codex-toml":
-        return _compute_toml(target, command, remove)
-    return _compute_json(target, command, remove)
+        return _compute_toml(target, command, remove, name)
+    return _compute_json(target, command, remove, name)
 
 
 def plan(clients: list[str] | None, command: list[str] = DEFAULT_COMMAND, remove: bool = False,
-         home: Path | None = None) -> list[PlannedChange]:
+         home: Path | None = None, name: str = SERVER_NAME) -> list[PlannedChange]:
     """clients None = all detected. Never touches other keys/servers. Entry:
     JSON: {"command": cmd[0], "args": cmd[1:]} (claude also "type": "stdio").
     TOML: [mcp_servers.mail]\ncommand = "..."\nargs = [...]\nstartup_timeout_sec = 60"""
     command = list(command)
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", name):
+        raise UsageError("name must be 1-64 characters: letters, digits, '-' or '_'")
     if not command or not all(isinstance(c, str) and c for c in command):
         raise UsageError("command must be a non-empty list of strings")
     all_targets = targets(home)
@@ -311,10 +331,10 @@ def plan(clients: list[str] | None, command: list[str] = DEFAULT_COMMAND, remove
     for t in chosen:
         if explicit and not t.detected and not t.path.exists() and not remove:
             changes.append(PlannedChange(t, "unchanged", "(none)", "(none)",
-                                         f"{t.name} was not detected on this machine; skipped", command))
+                                         f"{t.name} was not detected on this machine; skipped", command, name))
             continue
-        action, before, after, _text, error = _compute(t, command, remove)
-        changes.append(PlannedChange(t, action, before, after, error, command))
+        action, before, after, _text, error = _compute(t, command, remove, name)
+        changes.append(PlannedChange(t, action, before, after, error, command, name))
     return changes
 
 
@@ -339,20 +359,16 @@ def _atomic_write(path: Path, text: str) -> None:
 
 
 def _backup(path: Path) -> Path | None:
+    """One backup per file: <file>.bak-mailmcp (a previous backup is overwritten)."""
     if not path.exists():
         return None
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    bak = path.with_name(f"{path.name}.bak-mailmcp-{stamp}")
-    n = 1
-    while bak.exists():
-        n += 1
-        bak = path.with_name(f"{path.name}.bak-mailmcp-{stamp}-{n}")
+    bak = path.with_name(f"{path.name}.bak-mailmcp")
     shutil.copy2(path, bak)
     return bak
 
 
 def apply(changes: list[PlannedChange]) -> list[str]:
-    """Backup each file to <file>.bak-mailmcp-<timestamp> before writing; JSON written with indent=2
+    """Backup each file to <file>.bak-mailmcp before writing; JSON written with indent=2
     preserving other content; TOML edited textually (append or replace only our table) and validated
     with tomllib after writing (restore backup on failure). Return human lines of what happened."""
     lines: list[str] = []
@@ -365,7 +381,7 @@ def apply(changes: list[PlannedChange]) -> list[str]:
             lines.append(f"{t.name}: already up to date ({t.path})")
             continue
         # Recompute from the file as it is right now (it may have changed since plan()).
-        action, _b, _a, new_text, error = _compute(t, ch.command, ch.action == "remove")
+        action, _b, _a, new_text, error = _compute(t, ch.command, ch.action == "remove", ch.name)
         if error:
             lines.append(f"{t.name}: skipped - {error}")
             continue
@@ -380,7 +396,7 @@ def apply(changes: list[PlannedChange]) -> list[str]:
             continue
         if t.fmt == "codex-toml":
             try:
-                _mail_table(t.path.read_bytes().decode("utf-8-sig"))
+                _mail_table(t.path.read_bytes().decode("utf-8-sig"), ch.name)
             except Exception:  # noqa: BLE001 - restore on any validation failure
                 if bak is not None:
                     shutil.copy2(bak, t.path)
@@ -393,5 +409,8 @@ def apply(changes: list[PlannedChange]) -> list[str]:
                 continue
         verb = {"add": "added", "update": "updated", "remove": "removed"}[action]
         extra = f" (backup: {bak.name})" if bak else ""
-        lines.append(f"{t.name}: {verb} '{SERVER_NAME}' in {t.path}{extra}")
+        lines.append(f"{t.name}: {verb} '{ch.name}' in {t.path}{extra}")
+        if t.key == "claude":
+            lines.append(f"{t.name}: close {t.name} before installing if it is running, "
+                         "it may overwrite the file.")
     return lines

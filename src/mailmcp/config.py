@@ -34,6 +34,9 @@ class Settings:
     send_approval: bool = True
     trash_approval: bool = True
     autoconfig_lookup: bool = True
+    # HMAC (key in the OS keyring) over the approval flags; an "off" without a valid signature is
+    # ignored, so editing config.json by hand or by an agent cannot turn approvals off.
+    signature: str = ""
 
 
 @dataclass

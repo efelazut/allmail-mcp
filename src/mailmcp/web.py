@@ -1,7 +1,7 @@
 """Local web UI on 127.0.0.1: approval pages and the add-account page.
 
 Security model (see docs/ARCHITECTURE.md rule 7): bound to loopback, Host header pinned
-(DNS-rebinding defence), POSTs need a valid secret token + same Origin (or none) + form
+(DNS-rebinding defence), POSTs need a valid secret token + same Origin (required) + form
 content type, strict CSP, no JavaScript anywhere, everything HTML-escaped.
 """
 from __future__ import annotations
@@ -74,6 +74,9 @@ _T = {
                      "operating system keyring. It never goes through the AI chat.",
         "lookup_label": "Step 1 (optional): look up server settings",
         "lookup_btn": "Look up settings",
+        "add_step": "Step 2: add your account",
+        "setting_labels": {"send_approval": "Approval before sending",
+                           "trash_approval": "Approval before moving to Trash"},
         "email": "Email address", "display_name": "Display name",
         "password": "App password", "password_hint": "Use an app-specific password, not your normal login password.",
         "app_pw_link": "Create an app password for this provider",
@@ -127,6 +130,9 @@ _T = {
                      "anahtarlığında saklanır. Yapay zekâ sohbetinden asla geçmez.",
         "lookup_label": "1. adım (isteğe bağlı): sunucu ayarlarını bul",
         "lookup_btn": "Ayarları bul",
+        "add_step": "2. adım: hesabını ekle",
+        "setting_labels": {"send_approval": "Göndermeden önce onay",
+                           "trash_approval": "Çöp kutusuna taşımadan önce onay"},
         "email": "E-posta adresi", "display_name": "Görünen ad",
         "password": "Uygulama şifresi", "password_hint": "Normal giriş şifren değil, uygulamaya özel şifre kullan.",
         "app_pw_link": "Bu sağlayıcı için uygulama şifresi oluştur",
@@ -229,7 +235,7 @@ def _pick_lang(accept: str | None) -> str:
 def _page(t: dict, title: str, inner: str) -> bytes:
     doc = (f'<!doctype html><html lang="{t["lang"]}"><head><meta charset="utf-8">'
            '<meta name="viewport" content="width=device-width,initial-scale=1">'
-           '<meta name="referrer" content="no-referrer">'
+           '<meta name="referrer" content="same-origin">'
            f"<title>{_e(title)} — mailmcp</title><style>{_CSS}</style></head>"
            f"<body><main>{inner}</main></body></html>")
     return doc.encode("utf-8")
@@ -244,7 +250,12 @@ def _join(value) -> str:
 
 
 def _kv_row(label: str, value: str, cls: str = "") -> str:
-    return f'<tr><th>{_e(label)}</th><td class="{cls}">{_e(value)}</td></tr>'
+    if "rcpt" in cls.split():  # isolate each address so direction overrides cannot reorder the line
+        parts = [p.strip() for p in value.split(",") if p.strip()]
+        cell = ", ".join(f'<bdi style="unicode-bidi:isolate">{_e(p)}</bdi>' for p in parts)
+    else:
+        cell = _e(value)
+    return f'<tr><th>{_e(label)}</th><td class="{cls}">{cell}</td></tr>'
 
 
 def _fmt_val(t: dict, value) -> str:
@@ -310,7 +321,8 @@ def _render_approval(t: dict, a: PendingAction) -> bytes:
             to = c.get("to", c.get("new"))
             text = (f"{_fmt_val(t, frm)} → {_fmt_val(t, to)}" if frm is not None
                     else _fmt_val(t, to))
-            rows.append(_kv_row(str(c.get("setting", c.get("name", t["setting"]))), text))
+            key = str(c.get("setting", c.get("name", t["setting"])))
+            rows.append(_kv_row(t["setting_labels"].get(key, key), text))
         inner = (f'<h1>{_e(t["settings_title"])}</h1><div class="warn">{_e(t["settings_warn"])}</div>'
                  f'<table class="kv">{"".join(rows)}</table>')
         title = t["settings_title"]
@@ -366,8 +378,9 @@ def _render_add(t: dict, token: str, values: dict, error: str | None = None,
         else:
             if info.get("provider"):
                 parts.append(f'<p class="muted">{_e(t["found_provider"])}: <b>{_e(info["provider"])}</b></p>')
-            if info.get("notes"):
-                parts.append(f'<div class="warn">{_e(info["notes"])}</div>')
+            note = (info.get("notes_tr") if t["lang"] == "tr" else None) or info.get("notes")
+            if note:
+                parts.append(f'<div class="warn">{_e(note)}</div>')
             url = str(info.get("app_password_url") or "")
             if url.lower().startswith(("https://", "http://")):
                 parts.append(f'<p>{_e(t["app_pw_text"])} <a href="{_e(url)}" target="_blank" '
@@ -382,6 +395,7 @@ def _render_add(t: dict, token: str, values: dict, error: str | None = None,
                        for o in ("ssl", "starttls"))
         return f'<select name="{name}" id="{name}">{opts}</select>'
 
+    parts.append(f'<h2>{_e(t["add_step"])}</h2>')
     parts.append(
         f'<form method="post" action="/add" autocomplete="off">'
         f'<input type="hidden" name="t" value="{_e(token)}">'
@@ -442,7 +456,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Content-Security-Policy", CSP)
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Referrer-Policy", "same-origin")  # "no-referrer" makes browsers send Origin: null on POST
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Connection", "close")
@@ -460,9 +474,13 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         return host in (f"127.0.0.1:{port}", f"localhost:{port}")
 
     def _origin_ok(self) -> bool:
+        """Browsers always send Origin on form POSTs: a missing Origin is refused."""
         origin = self.headers.get("Origin")
         if origin is None:
-            return True
+            return False
+        site = self.headers.get("Sec-Fetch-Site")
+        if site is not None and site.strip().lower() != "same-origin":
+            return False
         port = self.web.port
         return origin.strip().lower() in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
 
@@ -512,8 +530,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         try:
-            if not self._host_ok() or not self._origin_ok():
+            if not self._host_ok():
                 return self._msg(400, "badreq")
+            if not self._origin_ok():
+                return self._msg(403, "forbidden")
             url = urllib.parse.urlsplit(self.path)
             m = _ID_RE.match(url.path)
             if not m and url.path != "/add":

@@ -26,6 +26,7 @@ class ServerSettings:
     smtp_saves_sent: bool = False
     app_password_url: str | None = None   # where the user creates an app password
     notes: str | None = None              # short human hint (e.g. "Requires 2-Step Verification")
+    notes_tr: str | None = None           # Turkish version of notes
     source: str = "builtin"               # "builtin" | "autoconfig" | "guess" | "manual"
 
 
@@ -54,6 +55,7 @@ _GMAIL = ServerSettings(
     app_password_url="https://myaccount.google.com/apppasswords",
     notes=("Requires 2-Step Verification, then create an app password. Google Workspace "
            "accounts usually cannot use app passwords (the admin must allow them)."),
+    notes_tr="2 Adımlı Doğrulama açık olmalı, sonra uygulama şifresi oluştur. Google Workspace (iş/okul) hesapları genelde uygulama şifresi kullanamaz (yöneticinin izin vermesi gerekir).",
 )
 _ICLOUD = ServerSettings(
     provider="icloud", imap_host="imap.mail.me.com", imap_port=993, imap_security="ssl",
@@ -61,12 +63,14 @@ _ICLOUD = ServerSettings(
     app_password_url="https://account.apple.com",
     notes=("Use an app-specific password (Sign-In and Security > App-Specific Passwords) and "
            "your full iCloud address as the username."),
+    notes_tr="Uygulamaya özel bir şifre kullan (Giriş ve Güvenlik > Uygulamaya Özel Şifreler) ve kullanıcı adı olarak tam iCloud adresini yaz.",
 )
 _YANDEX = ServerSettings(
     provider="yandex", imap_host="imap.yandex.com", imap_port=993, imap_security="ssl",
     smtp_host="smtp.yandex.com", smtp_port=465, smtp_security="ssl",
     app_password_url="https://id.yandex.com/security/app-passwords",
     notes=("Enable IMAP in Yandex Mail settings (Email clients) and use an app password."),
+    notes_tr="Yandex Mail ayarlarında (E-posta istemcileri) IMAP'i aç ve uygulama şifresi kullan.",
 )
 _ZOHO = ServerSettings(
     provider="zoho", imap_host="imap.zoho.com", imap_port=993, imap_security="ssl",
@@ -74,40 +78,47 @@ _ZOHO = ServerSettings(
     app_password_url="https://accounts.zoho.com/home#security/app_password",
     notes=("EU accounts use imap.zoho.eu / smtp.zoho.eu (add the account manually). "
            "Enable IMAP access in Zoho Mail settings."),
+    notes_tr="AB hesapları imap.zoho.eu / smtp.zoho.eu kullanır (hesabı elle ekle). Zoho Mail ayarlarında IMAP erişimini aç.",
 )
 _FASTMAIL = ServerSettings(
     provider="fastmail", imap_host="imap.fastmail.com", imap_port=993, imap_security="ssl",
     smtp_host="smtp.fastmail.com", smtp_port=465, smtp_security="ssl",
     app_password_url="https://app.fastmail.com/settings/security/devices",
     notes="Create an app password with IMAP and SMTP access.",
+    notes_tr="IMAP ve SMTP erişimi olan bir uygulama şifresi oluştur.",
 )
 _YAHOO = ServerSettings(
     provider="yahoo", imap_host="imap.mail.yahoo.com", imap_port=993, imap_security="ssl",
     smtp_host="smtp.mail.yahoo.com", smtp_port=465, smtp_security="ssl",
     app_password_url="https://login.yahoo.com/account/security/app-passwords",
     notes="Generate an app password in Account Security.",
+    notes_tr="Hesap Güvenliği bölümünde bir uygulama şifresi oluştur.",
 )
 _GMX_COM = ServerSettings(
     provider="gmx", imap_host="imap.gmx.com", imap_port=993, imap_security="ssl",
     smtp_host="mail.gmx.com", smtp_port=587, smtp_security="starttls",
     notes="Enable IMAP/POP3 access in GMX settings (POP3 & IMAP).",
+    notes_tr="GMX ayarlarında IMAP/POP3 erişimini aç (POP3 ve IMAP).",
 )
 _GMX_NET = ServerSettings(
     provider="gmx", imap_host="imap.gmx.net", imap_port=993, imap_security="ssl",
     smtp_host="mail.gmx.net", smtp_port=587, smtp_security="starttls",
     notes="Enable IMAP/POP3 access in GMX settings (POP3 & IMAP).",
+    notes_tr="GMX ayarlarında IMAP/POP3 erişimini aç (POP3 ve IMAP).",
 )
 _AOL = ServerSettings(
     provider="aol", imap_host="imap.aol.com", imap_port=993, imap_security="ssl",
     smtp_host="smtp.aol.com", smtp_port=465, smtp_security="ssl",
     app_password_url="https://login.aol.com/account/security",
     notes="Generate an app password in Account Security.",
+    notes_tr="Hesap Güvenliği bölümünde bir uygulama şifresi oluştur.",
 )
 _MAILRU = ServerSettings(
     provider="mail.ru", imap_host="imap.mail.ru", imap_port=993, imap_security="ssl",
     smtp_host="smtp.mail.ru", smtp_port=465, smtp_security="ssl",
     app_password_url="https://id.mail.ru/security",
     notes="Create an external-app password in Mail.ru security settings.",
+    notes_tr="Mail.ru güvenlik ayarlarında harici uygulama şifresi oluştur.",
 )
 
 _BUILTIN: dict[str, ServerSettings] = {}

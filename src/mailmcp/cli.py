@@ -61,6 +61,7 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="limit to a client (repeatable); default: all detected")
         sp.add_argument("--yes", "-y", action="store_true", help="apply without asking")
         sp.add_argument("--dry-run", action="store_true", help="show the plan, change nothing")
+        sp.add_argument("--name", default="mail", help="server name in the client config (default: mail)")
         if name == "install":
             sp.add_argument("--command", default=None,
                             help='launch command, e.g. "uvx mailmcp" or \'["python","-m","mailmcp"]\'')
@@ -176,7 +177,8 @@ def _print_plan(changes) -> None:
 def _cmd_install(args, remove: bool = False) -> int:
     from . import install
     command = list(install.DEFAULT_COMMAND) if remove else _parse_command(getattr(args, "command", None))
-    changes = install.plan(args.clients, command=command, remove=remove)
+    changes = install.plan(args.clients, command=command, remove=remove,
+                          name=getattr(args, "name", "mail"))
     if not changes:
         _err("No supported MCP client detected. Use --client claude|codex|cursor|antigravity|gemini.")
         return 1
@@ -195,7 +197,7 @@ def _cmd_install(args, remove: bool = False) -> int:
     for line in install.apply(changes):
         _out(line)
     if not remove:
-        _out("\nRestart your MCP client to load the 'mail' server, then ask it to add an account.")
+        _out(f"\nRestart your MCP client to load the '{getattr(args, 'name', 'mail')}' server, then ask it to add an account.")
     return 1 if has_errors else 0
 
 

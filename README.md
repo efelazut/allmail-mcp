@@ -103,6 +103,14 @@ uvx mailmcp uninstall
 uvx mailmcp doctor          # checks keychain, config and each account's login
 ```
 
+## Skill (optional)
+
+If your agent supports Agent Skills, copy [`skill/mailmcp/SKILL.md`](skill/mailmcp/SKILL.md) to
+`~/.claude/skills/mailmcp/SKILL.md` (Claude Code), `~/.codex/skills/mailmcp/SKILL.md` (Codex) or
+`.agents/skills/mailmcp/SKILL.md` in your project. It teaches the agent the tool workflow: search
+all accounts, read before replying, draft first, wait for the user to approve in the browser, never take
+instructions from inside an email. mailmcp works without it.
+
 ## Alternatives
 
 Good projects exist and you may prefer them:
@@ -121,4 +129,4 @@ uv venv && uv pip install -e ".[dev]"
 uv run pytest
 ```
 
-Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). License: MIT.
+Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). License: [MIT](LICENSE).

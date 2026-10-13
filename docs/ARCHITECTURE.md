@@ -30,7 +30,7 @@ with a clear "coming in v0.2" message.
    matching `Origin` (or absent Origin + valid token) and a single-use token
    (`secrets.token_urlsafe(32)`, constant-time compare, 15 min expiry). Strict CSP
    (`default-src 'none'; style-src 'unsafe-inline'; form-action 'self'`),
-   `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`. HTML-escape everything.
+   `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` (not no-referrer: that makes browsers send `Origin: null`). HTML-escape everything.
 8. Approval pages show data from the **server-side pending action** (recipients,
    subject, full body / message list), never an LLM-provided summary.
 

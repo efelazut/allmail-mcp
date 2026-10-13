@@ -129,7 +129,7 @@ def test_remove_account_unknown(monkeypatch, capsys):
 # ------------------------------------------------------------------------- install
 
 def test_parse_command():
-    assert cli._parse_command(None) == ["uvx", "mailmcp"]
+    assert cli._parse_command(None) == ["uvx", f"mailmcp@{mailmcp.__version__}"]
     assert cli._parse_command("uvx mailmcp") == ["uvx", "mailmcp"]
     assert cli._parse_command('["python", "-m", "mailmcp"]') == ["python", "-m", "mailmcp"]
     assert cli._parse_command('"C:\\Program Files\\uvx.exe" mailmcp')[1] == "mailmcp"

@@ -124,3 +124,17 @@ def test_message_id_uses_account_domain(make_account):
     acc = make_account(email="efe@kendi-domain.com.tr")
     msg = compose.build_message(acc, "a@x.com", "s", "b")
     assert str(msg["Message-ID"]).endswith("@kendi-domain.com.tr>")
+
+
+import pytest as _pytest_inv
+
+
+@_pytest_inv.mark.parametrize("bad", ["‮", "​", "⁦", "⁩", "﻿"])
+def test_invisible_chars_rejected_in_recipients_and_subject(bad, make_account):
+    with _pytest_inv.raises(ComposeError, match="invisible or direction-control"):
+        compose.parse_recipients(f"Bob{bad} <bob@example.com>")
+    with _pytest_inv.raises(ComposeError, match="invisible or direction-control"):
+        compose.parse_recipients(f"bob{bad}@example.com")
+    acct = make_account()
+    with _pytest_inv.raises(ComposeError, match="invisible or direction-control"):
+        compose.build_message(acct, "bob@example.com", f"Hi{bad}", "x")
