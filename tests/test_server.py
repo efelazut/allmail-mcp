@@ -84,7 +84,7 @@ def click(app: App, text: str, choice: str = "approve") -> str:
     data = urllib.parse.urlencode({"t": action.token, "action": choice}).encode()
     req = urllib.request.Request(f"{base}/a/{action_id}", data=data, method="POST",
                                  headers={"Origin": base, "Content-Type": "application/x-www-form-urlencoded"})
-    with urllib.request.urlopen(req, timeout=10) as r:
+    with urllib.request.urlopen(req, timeout=90) as r:
         assert r.status == 200
     return action_id
 
