@@ -4,7 +4,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.1.0] - Unreleased
+## [0.1.1] - 2026-10-14
+
+### Changed
+- PyPI distribution renamed to `allmail-mcp`; repo moved to `efelazut/allmail-mcp`.
+  `install` pins `uvx allmail-mcp@<version>` and still recognises older `mailmcp` entries.
+- CLI shows its name as `allmail-mcp`. README documents a pipx fallback for users without uv.
+
+## [0.1.0] - 2026-10-14
 
 ### Added
 - MCP stdio server with ten tools: `accounts_list`, `account_add`, `folders_list`,

@@ -37,6 +37,9 @@ uvx allmail-mcp install        # "mail" sunucusunu Claude Code, Codex, Cursor, A
 uvx allmail-mcp add-account    # yerel bir sayfa açar; uygulama şifresini oraya yapıştır
 ```
 
+uv yok mu? `uvx`, [uv](https://docs.astral.sh/uv/) ile gelir (`winget install astral-sh.uv` ya da tek satırlık
+kurucu). uv'siz: `pipx install allmail-mcp`, ardından `allmail-mcp install --command allmail-mcp`.
+
 Ajanını yeniden başlat ve postanı sor. Tek bir istemciyi elle eklemek için:
 
 ```bash

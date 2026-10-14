@@ -43,7 +43,7 @@ class _Parser(argparse.ArgumentParser):
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    p = _Parser(prog="mailmcp", description="All your mailboxes in any AI agent, over MCP.")
+    p = _Parser(prog="allmail-mcp", description="All your mailboxes in any AI agent, over MCP.")
     p.add_argument("--version", action="store_true", help="print version and exit")
     sub = p.add_subparsers(dest="cmd", parser_class=_Parser)
 
@@ -222,7 +222,7 @@ def _cmd_doctor(_args) -> int:
     def na(text: str) -> None:
         line("-", f"{text}: not available")
 
-    ok(f"mailmcp {__version__}")
+    ok(f"allmail-mcp {__version__}")
     v = sys.version_info
     (ok if v >= (3, 10) else bad)(f"Python {v.major}.{v.minor}.{v.micro}" + ("" if v >= (3, 10) else " (need 3.10+)"))
 
@@ -313,7 +313,7 @@ def main(argv: list[str] | None = None) -> int:
         except SystemExit as e:  # --help
             return int(e.code or 0)
         if args.version:
-            _out(f"mailmcp {__version__}")
+            _out(f"allmail-mcp {__version__}")
             return 0
         handler = _COMMANDS[args.cmd or "serve"]
         return int(handler(args) or 0)

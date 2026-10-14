@@ -36,6 +36,9 @@ uvx allmail-mcp install        # adds the "mail" server to Claude Code, Codex, C
 uvx allmail-mcp add-account    # opens a local page; paste an app password there
 ```
 
+No uv? `uvx` comes from [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`, or the one-line
+installer). Without it: `pipx install allmail-mcp`, then run `allmail-mcp install --command allmail-mcp`.
+
 Restart your agent and ask it about your mail. Single client, by hand:
 
 ```bash

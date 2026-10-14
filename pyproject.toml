@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "allmail-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "All your mailboxes in any AI agent, over MCP. Runs locally; nothing is sent or trashed without your click."
 readme = "README.md"
 license = "MIT"
