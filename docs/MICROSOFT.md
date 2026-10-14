@@ -17,7 +17,7 @@ How it works:
 
 ## Using your own app registration
 
-Release builds ship the allmail-mcp client id. To use your own (or for a development build):
+Release builds (0.2.0+) ship the allmail-mcp client id, so users just click "Sign in with Microsoft". To use your own (or for a development build):
 
 1. Sign in at <https://entra.microsoft.com> → **App registrations** → **New registration**.
 2. Name: anything (e.g. `allmail-mcp`). Supported account types: **Personal Microsoft accounts

@@ -17,7 +17,7 @@ from .secrets_store import get_password, set_password
 
 # Public client id of the allmail-mcp app registration ("Personal Microsoft accounts", redirect
 # http://localhost). Override with env MAILMCP_MS_CLIENT_ID to use your own registration.
-DEFAULT_CLIENT_ID = ""
+DEFAULT_CLIENT_ID = "6f09cfb8-7e11-4033-b11c-5bd23c5c2d45"
 AUTHORITY = "https://login.microsoftonline.com/consumers"
 SCOPES = ["https://outlook.office.com/IMAP.AccessAsUser.All", "https://outlook.office.com/SMTP.Send"]
 _KEY_ID = "__ms_token_cache_key__"
