@@ -72,9 +72,20 @@ _T = {
         "add_title": "Add a mail account",
         "add_intro": "Your password is typed here, verified with the mail server and stored in your "
                      "operating system keyring. It never goes through the AI chat.",
-        "lookup_label": "Step 1 (optional): look up server settings",
-        "lookup_btn": "Look up settings",
+        "lookup_label": "Which email address do you want to connect?",
+        "lookup_btn": "Continue",
         "add_step": "Step 2: add your account",
+        "connect_title": "Connect {email}",
+        "change_email": "Use a different address",
+        "why_app_pw": "{provider} does not let apps use your normal password. Instead you create a "
+                      "code just for this app. It takes about a minute.",
+        "s1": "Open the {provider} app password page",
+        "s1_btn": "Create app password ↗",
+        "s1_hint": "Give it any name (e.g. allmail-mcp) and press Create. It opens in a new tab.",
+        "s2": "Paste the code {provider} shows you",
+        "s2_ph": "xxxx xxxx xxxx xxxx",
+        "s3_btn": "Connect",
+        "more": "More options (name, server settings)",
         "setting_labels": {"send_approval": "Approval before sending",
                            "trash_approval": "Approval before moving to Trash"},
         "email": "Email address", "display_name": "Display name",
@@ -128,9 +139,20 @@ _T = {
         "add_title": "Posta hesabı ekle",
         "add_intro": "Şifren burada yazılır, posta sunucusuyla doğrulanır ve işletim sisteminin "
                      "anahtarlığında saklanır. Yapay zekâ sohbetinden asla geçmez.",
-        "lookup_label": "1. adım (isteğe bağlı): sunucu ayarlarını bul",
-        "lookup_btn": "Ayarları bul",
+        "lookup_label": "Hangi e-posta adresini bağlamak istiyorsun?",
+        "lookup_btn": "Devam",
         "add_step": "2. adım: hesabını ekle",
+        "connect_title": "{email} adresini bağla",
+        "change_email": "Başka bir adres kullan",
+        "why_app_pw": "{provider}, uygulamaların normal şifreni kullanmasına izin vermez. Bunun yerine "
+                      "yalnız bu uygulama için bir kod oluşturursun. Yaklaşık bir dakika sürer.",
+        "s1": "{provider} uygulama şifresi sayfasını aç",
+        "s1_btn": "Uygulama şifresi oluştur ↗",
+        "s1_hint": "Herhangi bir ad ver (ör. allmail-mcp) ve Oluştur'a bas. Yeni sekmede açılır.",
+        "s2": "{provider} sana bir kod gösterecek, onu buraya yapıştır",
+        "s2_ph": "xxxx xxxx xxxx xxxx",
+        "s3_btn": "Bağlan",
+        "more": "Diğer seçenekler (ad, sunucu ayarları)",
         "setting_labels": {"send_approval": "Göndermeden önce onay",
                            "trash_approval": "Çöp kutusuna taşımadan önce onay"},
         "email": "E-posta adresi", "display_name": "Görünen ad",
@@ -200,6 +222,15 @@ legend{font-weight:600;padding:0 6px}
 .row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1 1 140px}
 a{color:var(--accent)}
 .sep{border:0;border-top:1px solid var(--line);margin:20px 0}
+ol.steps{list-style:none;counter-reset:s;padding:0;margin:16px 0}
+ol.steps>li{counter-increment:s;position:relative;padding:0 0 18px 44px}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;
+background:var(--accent);color:var(--card);font-weight:700;display:flex;align-items:center;justify-content:center}
+.stitle{font-weight:700;margin:2px 0 8px;display:block}
+a.btn{display:inline-block;background:var(--accent);color:var(--card);text-decoration:none;font-weight:600;
+border-radius:8px;padding:10px 16px}
+input.code{font-size:1.2rem;letter-spacing:.08em;font-family:ui-monospace,Consolas,monospace}
+details{margin:12px 0}summary{cursor:pointer;color:var(--muted)}
 """
 
 # --------------------------------------------------------------------- helpers
@@ -236,7 +267,7 @@ def _page(t: dict, title: str, inner: str) -> bytes:
     doc = (f'<!doctype html><html lang="{t["lang"]}"><head><meta charset="utf-8">'
            '<meta name="viewport" content="width=device-width,initial-scale=1">'
            '<meta name="referrer" content="same-origin">'
-           f"<title>{_e(title)} — mailmcp</title><style>{_CSS}</style></head>"
+           f"<title>{_e(title)} — allmail-mcp</title><style>{_CSS}</style></head>"
            f"<body><main>{inner}</main></body></html>")
     return doc.encode("utf-8")
 
@@ -360,32 +391,40 @@ class _AddForm:
               "smtp_host", "smtp_port", "smtp_security", "username")
 
 
+_PROVIDER_NAMES = {"gmail": "Google", "icloud": "Apple", "yandex": "Yandex", "zoho": "Zoho"}
+
+
 def _render_add(t: dict, token: str, values: dict, error: str | None = None,
                 info: dict | None = None) -> bytes:
     v = {k: values.get(k, "") for k in _AddForm.FIELDS}
-    parts = [f'<h1>{_e(t["add_title"])}</h1><p class="muted">{_e(t["add_intro"])}</p>']
-    # Step 1: GET lookup form (never contains the password).
-    parts.append(
-        f'<form method="get" action="/add"><label for="lk">{_e(t["lookup_label"])}</label>'
-        f'<input type="hidden" name="t" value="{_e(token)}">'
-        f'<div class="row"><div><input id="lk" type="email" name="email" value="{_e(v["email"])}" '
-        f'autocomplete="off" placeholder="name@example.com"></div>'
-        f'<div style="flex:0 0 auto"><button class="neutral" type="submit">{_e(t["lookup_btn"])}</button>'
-        f"</div></div></form>")
-    if info:
-        if info.get("error"):
+    tok = f'<input type="hidden" name="t" value="{_e(token)}">'
+    looked_up = bool(info) and not info.get("error")
+    if not looked_up and not error:
+        # Screen 1: only ask for the address (GET; never carries the password).
+        parts = [f'<h1>{_e(t["add_title"])}</h1><p class="muted">{_e(t["add_intro"])}</p>']
+        if info and info.get("error"):
             parts.append(f'<div class="err">{_e(info["error"])}</div>')
-        else:
-            if info.get("provider"):
-                parts.append(f'<p class="muted">{_e(t["found_provider"])}: <b>{_e(info["provider"])}</b></p>')
-            note = (info.get("notes_tr") if t["lang"] == "tr" else None) or info.get("notes")
-            if note:
-                parts.append(f'<div class="warn">{_e(note)}</div>')
-            url = str(info.get("app_password_url") or "")
-            if url.lower().startswith(("https://", "http://")):
-                parts.append(f'<p>{_e(t["app_pw_text"])} <a href="{_e(url)}" target="_blank" '
-                             f'rel="noopener noreferrer">{_e(t["app_pw_link"])}</a></p>')
-    parts.append('<hr class="sep">')
+        parts.append(
+            f'<form method="get" action="/add"><label for="lk">{_e(t["lookup_label"])}</label>{tok}'
+            f'<input id="lk" type="email" name="email" required value="{_e(v["email"])}" '
+            f'autocomplete="off" placeholder="name@example.com" autofocus>'
+            f'<div class="actions"><button class="ok" type="submit">{_e(t["lookup_btn"])}</button></div></form>')
+        return _page(t, t["add_title"], "".join(parts))
+
+    # Screen 2: provider-specific numbered steps.
+    info = info if looked_up else {}
+    prov_key = str(info.get("provider") or "")
+    prov = _PROVIDER_NAMES.get(prov_key, prov_key.capitalize() or "Mail")
+    url = str(info.get("app_password_url") or "")
+    has_url = url.lower().startswith(("https://", "http://"))
+    parts = [f'<h1>{_e(t["connect_title"].format(email=v["email"]))}</h1>',
+             f'<p class="muted"><a href="/add?t={_e(token)}">{_e(t["change_email"])}</a></p>']
+    if prov_key:
+        parts.append(f'<p class="muted">{_e(t["found_provider"])}: <b>{_e(prov_key)}</b></p>')
+    parts.append(f'<p>{_e(t["why_app_pw"].format(provider=prov))}</p>')
+    note = (info.get("notes_tr") if t["lang"] == "tr" else None) or info.get("notes")
+    if note:
+        parts.append(f'<div class="warn">{_e(note)}</div>')
     if error:
         parts.append(f'<div class="err" role="alert">{_e(error)}</div>')
 
@@ -395,18 +434,24 @@ def _render_add(t: dict, token: str, values: dict, error: str | None = None,
                        for o in ("ssl", "starttls"))
         return f'<select name="{name}" id="{name}">{opts}</select>'
 
-    parts.append(f'<h2>{_e(t["add_step"])}</h2>')
+    steps = []
+    if has_url:
+        steps.append(f'<li><p class="stitle">{_e(t["s1"].format(provider=prov))}</p>'
+                     f'<a class="btn" href="{_e(url)}" target="_blank" rel="noopener noreferrer">'
+                     f'{_e(t["s1_btn"])}</a><p class="muted">{_e(t["s1_hint"])}</p></li>')
+    steps.append(f'<li><label class="stitle" for="password">{_e(t["s2"].format(provider=prov))}</label>'
+                 f'<input id="password" class="code" type="password" name="password" required '
+                 f'autocomplete="off" placeholder="{_e(t["s2_ph"])}"></li>')
+    steps.append(f'<li><button class="ok" type="submit">{_e(t["s3_btn"])}</button></li>')
+    open_more = "" if prov_key else " open"
     parts.append(
-        f'<form method="post" action="/add" autocomplete="off">'
-        f'<input type="hidden" name="t" value="{_e(token)}">'
-        f'<label for="email">{_e(t["email"])}</label>'
-        f'<input id="email" type="email" name="email" required value="{_e(v["email"])}">'
+        f'<form method="post" action="/add" autocomplete="off">{tok}'
+        f'<input type="hidden" name="email" value="{_e(v["email"])}">'
+        f'<ol class="steps">{"".join(steps)}</ol>'
+        f'<details{open_more}><summary>{_e(t["more"])}</summary>'
         f'<label for="display_name">{_e(t["display_name"])}</label>'
         f'<input id="display_name" type="text" name="display_name" value="{_e(v["display_name"])}">'
-        f'<label for="password">{_e(t["password"])}</label>'
-        f'<input id="password" type="password" name="password" required autocomplete="off">'
-        f'<p class="muted">{_e(t["password_hint"])}</p>'
-        f'<fieldset><legend>{_e(t["advanced"])}</legend><p class="muted">{_e(t["advanced_hint"])}</p>'
+        f'<p class="muted">{_e(t["advanced_hint"])}</p>'
         f'<div class="row"><div><label for="imap_host">{_e(t["imap_host"])}</label>'
         f'<input id="imap_host" type="text" name="imap_host" value="{_e(v["imap_host"])}"></div>'
         f'<div><label for="imap_port">{_e(t["imap_port"])}</label>'
@@ -418,9 +463,8 @@ def _render_add(t: dict, token: str, values: dict, error: str | None = None,
         f'<input id="smtp_port" type="text" inputmode="numeric" name="smtp_port" value="{_e(v["smtp_port"])}"></div>'
         f'<div><label for="smtp_security">{_e(t["smtp_security"])}</label>{sec("smtp_security")}</div></div>'
         f'<label for="username">{_e(t["username"])}</label>'
-        f'<input id="username" type="text" name="username" value="{_e(v["username"])}">'
-        f"</fieldset>"
-        f'<button class="ok" type="submit">{_e(t["add_btn"])}</button></form>')
+        f'<input id="username" type="text" name="username" autocomplete="off" value="{_e(v["username"])}">'
+        f"</details></form>")
     return _page(t, t["add_title"], "".join(parts))
 
 
@@ -614,7 +658,12 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         password = form.get("password", "")
 
         def redisplay(err: str, status: int = 200) -> None:
-            self._send(status, _render_add(t, token, values, error=err))
+            info = None
+            try:
+                info = dict(self.web.lookup(values["email"]) or {}) if "@" in values["email"] else None
+            except Exception:  # noqa: BLE001 - redisplay must not fail on lookup
+                info = None
+            self._send(status, _render_add(t, token, values, error=err, info=info))
 
         if "@" not in values["email"] or any(c.isspace() for c in values["email"]):
             return redisplay(t["err_email"])

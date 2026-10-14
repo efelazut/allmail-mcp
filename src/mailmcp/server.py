@@ -154,7 +154,9 @@ class App:
             auto = None
         # The form pre-fills looked-up settings; unchanged values are not a manual override,
         # so keep the provider's own knowledge (e.g. Gmail stores Sent copies itself).
-        if manual and auto and _same_servers(manual, auto) and not (manual.get("username") or "").strip():
+        # Browsers often autofill the username field with the address itself; that is not an override.
+        user = (manual or {}).get("username") or ""
+        if manual and auto and _same_servers(manual, auto) and user.strip().lower() in ("", email.lower()):
             manual = None
         if manual:
             server = ServerSettings(

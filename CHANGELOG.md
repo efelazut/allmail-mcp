@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-14
+
+### Changed
+- Add-account page is now a guided flow: first only the address, then numbered steps
+  (open the provider's app password page, paste the code, Connect). Server settings moved
+  under "More options".
+
+### Fixed
+- A browser-autofilled username equal to the address no longer turns Gmail into a "custom"
+  account (which lost provider defaults such as Gmail saving Sent copies itself).
+- After a failed attempt the page keeps the provider steps and link.
+
 ## [0.1.1] - 2026-10-14
 
 ### Changed

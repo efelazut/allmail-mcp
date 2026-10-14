@@ -286,15 +286,16 @@ def add_url(env):
 def test_add_form_and_lookup(env):
     u = add_url(env)
     st, h, body = env.req("GET", u)
-    assert st == 200 and 'type="password"' in body and 'autocomplete="off"' in body
-    assert "<script" not in body.lower()
+    assert st == 200 and 'type="password"' not in body and 'autocomplete="off"' in body
+    assert "Continue" in body and "<script" not in body.lower()
     assert h["content-security-policy"].startswith("default-src 'none'")
     st, _, body = env.req("GET", u + "&email=me%40gmail.com")
     assert env.lookups == ["me@gmail.com"]
     assert "imap.gmail.com" in body and 'value="me@gmail.com"' in body
     assert 'href="https://myaccount.google.com/apppasswords"' in body
     assert 'rel="noopener noreferrer"' in body and 'target="_blank"' in body
-    assert "Needs 2-Step" in body and "Step 2: add your account" in body
+    assert "Needs 2-Step" in body and "Connect me@gmail.com" in body
+    assert 'type="password"' in body and "Google does not let apps" in body
     assert "2 Adımlı" not in body
     _, _, body = env.req("GET", u + "&email=me%40gmail.com", headers={"Accept-Language": "tr"})
     assert "2 Adımlı Doğrulama &lt;gerekli&gt;" in body and "Needs 2-Step" not in body
@@ -375,8 +376,9 @@ def test_add_validation_errors(env):
 def test_add_turkish(env):
     u = add_url(env)
     _, _, body = env.req("GET", u, headers={"Accept-Language": "tr"})
-    assert "Posta hesabı ekle" in body and "Ayarları bul" in body
-    assert "2. adım: hesabını ekle" in body
+    assert "Posta hesabı ekle" in body and "Devam" in body
+    _, _, body = env.req("GET", u + "&email=me%40gmail.com", headers={"Accept-Language": "tr"})
+    assert "me@gmail.com adresini bağla" in body and "Bağlan" in body
 
 
 def test_add_unexpected_error_generic(env):

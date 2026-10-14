@@ -203,6 +203,12 @@ def test_prefilled_lookup_values_keep_provider_defaults(memory_keyring, monkeypa
             "smtp_host": "smtp.gmail.com", "smtp_port": "465", "smtp_security": "ssl"})
         acc = load_config().accounts[acc_id]
         assert acc.provider == "gmail" and acc.smtp_saves_sent is True
+        # Browser autofill puts the address into "username"; still not a manual override.
+        id3 = a.add_account("efe2@gmail.com", "pw", "", {
+            "imap_host": "imap.gmail.com", "imap_port": "993", "imap_security": "ssl",
+            "smtp_host": "smtp.gmail.com", "smtp_port": "465", "smtp_security": "ssl",
+            "username": "Efe2@gmail.com"})
+        assert load_config().get(id3).provider == "gmail"
         id2 = a.add_account("me@corp.example", "pw", "", {
             "imap_host": "mail.corp.example", "imap_port": "993", "imap_security": "ssl",
             "smtp_host": "mail.corp.example", "smtp_port": "587", "smtp_security": "starttls"})
