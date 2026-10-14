@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mailmcp"
+name = "allmail-mcp"
 version = "0.1.0"
 description = "All your mailboxes in any AI agent, over MCP. Runs locally; nothing is sent or trashed without your click."
 readme = "README.md"
@@ -32,6 +32,7 @@ Issues = "https://github.com/efelazut/mailmcp/issues"
 dev = ["pytest>=8", "aiosmtpd>=1.4", "aioimaplib>=2.0", "pytz", "tzlocal"]
 
 [project.scripts]
+allmail-mcp = "mailmcp.cli:main"
 mailmcp = "mailmcp.cli:main"
 
 [tool.hatch.build.targets.wheel]

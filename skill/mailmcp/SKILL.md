@@ -61,5 +61,5 @@ approvals off just to make a task faster.
 
 ## Troubleshooting
 
-If a tool reports a login or keyring problem, tell the user to run `uvx mailmcp doctor` and
+If a tool reports a login or keyring problem, tell the user to run `uvx allmail-mcp doctor` and
 share the output rather than guessing. Outlook / Hotmail are not supported yet.

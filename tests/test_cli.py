@@ -129,7 +129,7 @@ def test_remove_account_unknown(monkeypatch, capsys):
 # ------------------------------------------------------------------------- install
 
 def test_parse_command():
-    assert cli._parse_command(None) == ["uvx", f"mailmcp@{mailmcp.__version__}"]
+    assert cli._parse_command(None) == ["uvx", f"allmail-mcp@{mailmcp.__version__}"]
     assert cli._parse_command("uvx mailmcp") == ["uvx", "mailmcp"]
     assert cli._parse_command('["python", "-m", "mailmcp"]') == ["python", "-m", "mailmcp"]
     assert cli._parse_command('"C:\\Program Files\\uvx.exe" mailmcp')[1] == "mailmcp"
@@ -141,7 +141,7 @@ def test_install_dry_run_writes_nothing(home, capsys):
     (home / ".cursor").mkdir()
     assert cli.main(["install", "--dry-run"]) == 0
     out = capsys.readouterr().out
-    assert "Cursor" in out and "ADD" in out and "mailmcp" in out
+    assert "Cursor" in out and "ADD" in out and "allmail-mcp" in out
     assert not (home / ".cursor" / "mcp.json").exists()
 
 

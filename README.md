@@ -32,15 +32,15 @@ Give your agent this repository's link and say *"install this"* — it follows [
 Or do it yourself (needs [uv](https://docs.astral.sh/uv/)):
 
 ```bash
-uvx mailmcp install        # adds the "mail" server to Claude Code, Codex, Cursor, Antigravity, Gemini CLI
-uvx mailmcp add-account    # opens a local page; paste an app password there
+uvx allmail-mcp install        # adds the "mail" server to Claude Code, Codex, Cursor, Antigravity, Gemini CLI
+uvx allmail-mcp add-account    # opens a local page; paste an app password there
 ```
 
 Restart your agent and ask it about your mail. Single client, by hand:
 
 ```bash
-claude mcp add --scope user mail -- uvx mailmcp
-codex mcp add mail -- uvx mailmcp
+claude mcp add --scope user mail -- uvx allmail-mcp
+codex mcp add mail -- uvx allmail-mcp
 ```
 
 ## Safety model
@@ -94,13 +94,13 @@ Ten small tools on purpose: fewer tokens in every session, fewer ways to go wron
 ## Commands
 
 ```bash
-uvx mailmcp                 # run the MCP server (what your agent starts)
-uvx mailmcp add-account
-uvx mailmcp accounts
-uvx mailmcp remove-account <id>
-uvx mailmcp install [--client claude|codex|cursor|antigravity|gemini] [--dry-run] [--yes]
-uvx mailmcp uninstall
-uvx mailmcp doctor          # checks keychain, config and each account's login
+uvx allmail-mcp                 # run the MCP server (what your agent starts)
+uvx allmail-mcp add-account
+uvx allmail-mcp accounts
+uvx allmail-mcp remove-account <id>
+uvx allmail-mcp install [--client claude|codex|cursor|antigravity|gemini] [--dry-run] [--yes]
+uvx allmail-mcp uninstall
+uvx allmail-mcp doctor          # checks keychain, config and each account's login
 ```
 
 ## Skill (optional)

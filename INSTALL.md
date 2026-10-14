@@ -21,18 +21,18 @@ If `uvx` is still not found afterwards, use the full path printed by the install
 
 ## 2. Register mailmcp with the user's agents
 ```
-uvx mailmcp install --yes
+uvx allmail-mcp install --yes
 ```
 This adds one `mail` server entry to every MCP client it finds on this computer
 (Claude Code, Codex, Cursor, Antigravity, Gemini CLI) and backs up each file first.
-To limit it: `uvx mailmcp install --client claude --yes` (repeat `--client` as needed).
-Preview without writing: `uvx mailmcp install --dry-run`.
+To limit it: `uvx allmail-mcp install --client claude --yes` (repeat `--client` as needed).
+Preview without writing: `uvx allmail-mcp install --dry-run`.
 
 ## 3. Restart
 Tell the user to restart their agent (or start a new session) so the `mail` tools load.
 
 ## 4. Add an account
-After the restart, call the `account_add` tool (or run `uvx mailmcp add-account` in a terminal).
+After the restart, call the `account_add` tool (or run `uvx allmail-mcp add-account` in a terminal).
 A local page opens in the browser. Tell the user:
 - **Gmail:** turn on 2-Step Verification, then create an app password at
   https://myaccount.google.com/apppasswords and paste it on the page.
@@ -47,8 +47,8 @@ The user can add as many accounts as they like (call `account_add` again).
 
 ## 5. Check
 Call `accounts_list`, then try `mail_search` with `limit: 3` and show the user the result.
-If something fails, run `uvx mailmcp doctor` and show the user its output.
+If something fails, run `uvx allmail-mcp doctor` and show the user its output.
 
 ## Uninstall
-`uvx mailmcp uninstall --yes` removes the `mail` entries; `uvx mailmcp remove-account <id>`
+`uvx allmail-mcp uninstall --yes` removes the `mail` entries; `uvx allmail-mcp remove-account <id>`
 deletes an account and its stored password.

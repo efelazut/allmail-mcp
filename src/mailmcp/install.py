@@ -14,7 +14,7 @@ from pathlib import Path
 from . import __version__
 from .errors import UsageError
 
-DEFAULT_COMMAND = ["uvx", f"mailmcp@{__version__}"]
+DEFAULT_COMMAND = ["uvx", f"allmail-mcp@{__version__}"]
 SERVER_NAME = "mail"
 _STARTUP_TIMEOUT = 60
 
@@ -93,7 +93,8 @@ def _looks_like_ours(entry) -> bool:
         return False
     args = entry.get("args")
     parts = [str(entry.get("command", ""))] + ([str(a) for a in args] if isinstance(args, list) else [])
-    return "mailmcp" in " ".join(parts).lower()
+    joined = " ".join(parts).lower()
+    return "mailmcp" in joined or "allmail-mcp" in joined
 
 
 _FOREIGN = "an MCP server named '{name}' already exists and is not mailmcp; remove or rename it first"

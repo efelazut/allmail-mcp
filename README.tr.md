@@ -33,15 +33,15 @@ Ajanına bu deponun bağlantısını ver ve *"bunu kur"* de; [INSTALL.md](INSTAL
 İstersen kendin de kurabilirsin ([uv](https://docs.astral.sh/uv/) gerekir):
 
 ```bash
-uvx mailmcp install        # "mail" sunucusunu Claude Code, Codex, Cursor, Antigravity, Gemini CLI'a ekler
-uvx mailmcp add-account    # yerel bir sayfa açar; uygulama şifresini oraya yapıştır
+uvx allmail-mcp install        # "mail" sunucusunu Claude Code, Codex, Cursor, Antigravity, Gemini CLI'a ekler
+uvx allmail-mcp add-account    # yerel bir sayfa açar; uygulama şifresini oraya yapıştır
 ```
 
 Ajanını yeniden başlat ve postanı sor. Tek bir istemciyi elle eklemek için:
 
 ```bash
-claude mcp add --scope user mail -- uvx mailmcp
-codex mcp add mail -- uvx mailmcp
+claude mcp add --scope user mail -- uvx allmail-mcp
+codex mcp add mail -- uvx allmail-mcp
 ```
 
 ## Güvenlik modeli
@@ -97,13 +97,13 @@ Bilerek on küçük araç: her oturumda daha az token, daha az hata payı.
 ## Komutlar
 
 ```bash
-uvx mailmcp                 # MCP sunucusunu çalıştırır (ajanın bunu başlatır)
-uvx mailmcp add-account
-uvx mailmcp accounts
-uvx mailmcp remove-account <id>
-uvx mailmcp install [--client claude|codex|cursor|antigravity|gemini] [--dry-run] [--yes]
-uvx mailmcp uninstall
-uvx mailmcp doctor          # anahtar deposunu, ayarları ve her hesabın girişini kontrol eder
+uvx allmail-mcp                 # MCP sunucusunu çalıştırır (ajanın bunu başlatır)
+uvx allmail-mcp add-account
+uvx allmail-mcp accounts
+uvx allmail-mcp remove-account <id>
+uvx allmail-mcp install [--client claude|codex|cursor|antigravity|gemini] [--dry-run] [--yes]
+uvx allmail-mcp uninstall
+uvx allmail-mcp doctor          # anahtar deposunu, ayarları ve her hesabın girişini kontrol eder
 ```
 
 ## Skill (isteğe bağlı)

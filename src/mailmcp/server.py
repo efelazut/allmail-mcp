@@ -269,7 +269,7 @@ class App:
                     "and an app password there (never in this chat). When they say they are done, "
                     "call accounts_list.")
         return ("No browser could be opened from here. Ask the user to run this in their own terminal: "
-                "uvx mailmcp add-account   (then call accounts_list).")
+                "uvx allmail-mcp add-account   (then call accounts_list).")
 
     def folders_list(self, account: str) -> str:
         acc, pw = self._account(load_config(), account)

@@ -64,7 +64,7 @@ def _build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--name", default="mail", help="server name in the client config (default: mail)")
         if name == "install":
             sp.add_argument("--command", default=None,
-                            help='launch command, e.g. "uvx mailmcp" or \'["python","-m","mailmcp"]\'')
+                            help='launch command, e.g. "uvx allmail-mcp" or \'["python","-m","mailmcp"]\'')
     sub.add_parser("doctor", help="check keyring, config and account logins")
     return p
 
@@ -298,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
     mailmcp add-account      -> start local page, open browser, wait until added (prints account id)
     mailmcp accounts         -> list accounts (no secrets)
     mailmcp remove-account ID -> delete config entry + keyring password (asks y/N unless --yes)
-    mailmcp install [--client claude|codex|cursor|antigravity|gemini ...] [--command "uvx mailmcp"] [--yes] [--dry-run]
+    mailmcp install [--client claude|codex|cursor|antigravity|gemini ...] [--command "uvx allmail-mcp"] [--yes] [--dry-run]
     mailmcp uninstall [--client ...] [--yes]
     mailmcp doctor           -> check keyring backend, config, each account's IMAP login (no secrets printed)
     mailmcp --version

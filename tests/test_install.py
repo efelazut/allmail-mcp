@@ -5,7 +5,7 @@ import pytest
 
 from mailmcp import __version__, install
 
-PINNED = f"mailmcp@{__version__}"
+PINNED = f"allmail-mcp@{__version__}"
 from mailmcp.errors import UsageError
 
 
@@ -307,7 +307,7 @@ def test_toml_validation_failure_restores_backup(home, monkeypatch):
 
 
 def test_default_command_is_version_pinned():
-    assert install.DEFAULT_COMMAND == ["uvx", f"mailmcp@{__version__}"]
+    assert install.DEFAULT_COMMAND == ["uvx", f"allmail-mcp@{__version__}"]
 
 
 def test_foreign_json_entry_not_touched(home):
