@@ -178,13 +178,20 @@ def _quiet_shutdown(client: IMAPClient) -> None:
         pass
 
 
+def _login(client: IMAPClient, username: str, secret: str, auth: str) -> None:
+    if auth == "oauth2":
+        client.oauth2_login(username, secret)
+    else:
+        client.login(username, secret)
+
+
 def test_login(server: ServerSettings, username: str, password: str, timeout: float = 20) -> None:
     """Connect + LOGIN + LOGOUT. Raise errors.MailServerError with a friendly hint
     (wrong app password / IMAP disabled / 2FA required) on failure."""
     client = None
     try:
         client = _connect(server.imap_host, server.imap_port, server.imap_security, timeout)
-        client.login(username, password)
+        _login(client, username, password, getattr(server, "auth", "basic"))
         try:
             client.logout()
         except Exception:  # noqa: BLE001 - logout failure after a good login is harmless
@@ -348,7 +355,7 @@ class MailBox:
         client = None
         try:
             client = _connect(acc.imap_host, acc.imap_port, acc.imap_security, self._timeout)
-            client.login(acc.username, self._password)
+            _login(client, acc.username, self._password, getattr(acc, "auth", "basic"))
         except Exception as exc:  # noqa: BLE001
             if client is not None:
                 _quiet_shutdown(client)

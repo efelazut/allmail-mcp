@@ -22,6 +22,8 @@ dependencies = [
   "keyring>=25",
   "nh3>=0.2.17",
   "platformdirs>=4",
+  "msal>=1.28",
+  "cryptography>=42",
 ]
 
 [project.urls]

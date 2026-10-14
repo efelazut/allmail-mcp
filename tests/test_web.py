@@ -21,7 +21,8 @@ class Env:
         self.store.register_executor("send", lambda a: self.sent.append(a.id) or "Message sent.")
         self.store.register_executor("trash", lambda a: "Moved 2 messages to Trash.")
         self.store.register_executor("settings", lambda a: "Setting changed.")
-        self.web = LocalWeb(self.store, self._add, self._lookup)
+        self.oauth_adds = []
+        self.web = LocalWeb(self.store, self._add, self._lookup, add_oauth=self._add_oauth)
         self.web.start()
         self.port = self.web.port
 
@@ -31,8 +32,17 @@ class Env:
             raise MailMcpError(self.add_error)
         return "acc-1"
 
+    def _add_oauth(self, email, name):
+        self.oauth_adds.append((email, name))
+        if self.add_error:
+            raise MailMcpError(self.add_error)
+        return "acc-ms"
+
     def _lookup(self, email):
         self.lookups.append(email)
+        if "@hotmail" in email:
+            return {"provider": "outlook", "auth": "oauth2", "imap_host": "outlook.office365.com",
+                    "notes": "Sign in"}
         if email.startswith("bad"):
             return {"error": "Lookup failed <b>"}
         return {"provider": "gmail", "imap_host": "imap.gmail.com", "imap_port": 993,
@@ -403,3 +413,32 @@ def test_open_in_browser_never_raises(monkeypatch):
     assert open_in_browser("http://127.0.0.1:1/") is False
     monkeypatch.setattr(webbrowser, "open", lambda u: False)
     assert open_in_browser("x") is False
+
+
+def test_microsoft_screen_has_sign_in_button_and_no_password(env):
+    u = add_url(env)
+    _, _, body = env.req("GET", u + "&email=me%40hotmail.com")
+    assert 'action="/add/microsoft"' in body and "Sign in with Microsoft" in body
+    assert 'type="password"' not in body and "<script" not in body.lower()
+
+
+def test_microsoft_post_adds_account_and_consumes_session(env):
+    tok = add_url(env).split("t=")[1]
+    st, _, body = env.req("POST", "/add/microsoft", {"t": tok, "email": "me@hotmail.com", "display_name": "Efe"})
+    assert st == 200 and "acc-ms" in body and env.oauth_adds == [("me@hotmail.com", "Efe")]
+    st, _, _ = env.req("POST", "/add/microsoft", {"t": tok, "email": "me@hotmail.com"})
+    assert st == 403 and len(env.oauth_adds) == 1
+
+
+def test_microsoft_post_error_redisplays_button(env):
+    env.add_error = "Microsoft sign-in did not complete (access_denied)."
+    tok = add_url(env).split("t=")[1]
+    st, _, body = env.req("POST", "/add/microsoft", {"t": tok, "email": "me@hotmail.com"})
+    assert st == 200 and "access_denied" in body and "Sign in with Microsoft" in body
+
+
+def test_microsoft_post_rejects_cross_origin(env):
+    tok = add_url(env).split("t=")[1]
+    f = {"t": tok, "email": "me@hotmail.com"}
+    assert env.req("POST", "/add/microsoft", f, headers={"Origin": "http://evil.com"})[0] == 403
+    assert not env.oauth_adds

@@ -63,9 +63,10 @@ def test_proton_needs_bridge(email):
     "a@outlook.com", "a@hotmail.com", "a@hotmail.co.uk", "a@live.com", "a@msn.com",
     "a@passport.com", "a@windowslive.com", "a@outlook.com.tr",
 ])
-def test_microsoft_rejected_with_v02_message(email):
-    with pytest.raises(ProviderNotSupported, match="v0.2"):
-        providers.lookup(email)
+def test_microsoft_uses_oauth_settings(email):
+    s = providers.lookup(email, allow_network=False)
+    assert s.provider == "outlook" and s.auth == "oauth2"
+    assert s.imap_host == "outlook.office365.com" and s.smtp_port == 587 and s.smtp_security == "starttls"
 
 
 def test_is_microsoft():

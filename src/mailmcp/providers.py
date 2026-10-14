@@ -28,6 +28,7 @@ class ServerSettings:
     notes: str | None = None              # short human hint (e.g. "Requires 2-Step Verification")
     notes_tr: str | None = None           # Turkish version of notes
     source: str = "builtin"               # "builtin" | "autoconfig" | "guess" | "manual"
+    auth: str = "basic"                # "basic" | "oauth2" (Microsoft sign-in)
 
 
 _MS_LABELS = {"outlook", "hotmail", "live"}
@@ -121,6 +122,14 @@ _MAILRU = ServerSettings(
     notes_tr="Mail.ru güvenlik ayarlarında harici uygulama şifresi oluştur.",
 )
 
+_OUTLOOK = ServerSettings(
+    provider="outlook", imap_host="outlook.office365.com", imap_port=993, imap_security="ssl",
+    smtp_host="smtp-mail.outlook.com", smtp_port=587, smtp_security="starttls", smtp_saves_sent=True,
+    auth="oauth2",
+    notes="Sign in with your Microsoft account in the browser. No app password needed.",
+    notes_tr="Microsoft hesabınla tarayıcıda giriş yap. Uygulama şifresi gerekmez.",
+)
+
 _BUILTIN: dict[str, ServerSettings] = {}
 for _domains, _settings in (
     (("gmail.com", "googlemail.com"), _GMAIL),
@@ -154,10 +163,7 @@ def lookup(email: str, allow_network: bool = True) -> ServerSettings | None:
             "Proton requires Proton Mail Bridge; add it manually with Bridge's host/port."
         )
     if is_microsoft(domain):
-        raise ProviderNotSupported(
-            "Outlook/Hotmail/Live accounts are not supported yet: Microsoft turned off "
-            "password login for IMAP, so they need OAuth. Support arrives in v0.2."
-        )
+        return ServerSettings(**_OUTLOOK.__dict__)
     found = _builtin(domain)
     if found is not None:
         return found

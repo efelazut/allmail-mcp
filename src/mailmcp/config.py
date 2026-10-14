@@ -27,6 +27,7 @@ class Account:
     smtp_security: str       # "ssl" | "starttls"
     username: str
     smtp_saves_sent: bool = False   # True when the provider stores a Sent copy itself (Gmail)
+    auth: str = "basic"          # "basic" (keyring app password) | "oauth2" (Microsoft sign-in, ms_auth)
 
 
 @dataclass

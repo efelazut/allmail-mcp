@@ -86,6 +86,10 @@ _T = {
         "s2_ph": "xxxx xxxx xxxx xxxx",
         "s3_btn": "Connect",
         "more": "More options (name, server settings)",
+        "ms_why": "Microsoft accounts connect with a normal sign-in: a Microsoft page opens in your "
+                  "browser, you pick or sign in to the account, and you are done. No app password.",
+        "ms_btn": "Sign in with Microsoft",
+        "ms_hint": "After clicking, finish the sign-in in the new browser tab, then come back here.",
         "setting_labels": {"send_approval": "Approval before sending",
                            "trash_approval": "Approval before moving to Trash"},
         "email": "Email address", "display_name": "Display name",
@@ -153,6 +157,10 @@ _T = {
         "s2_ph": "xxxx xxxx xxxx xxxx",
         "s3_btn": "Bağlan",
         "more": "Diğer seçenekler (ad, sunucu ayarları)",
+        "ms_why": "Microsoft hesapları normal girişle bağlanır: tarayıcında Microsoft sayfası açılır, "
+                  "hesabını seçer ya da giriş yaparsın, bu kadar. Uygulama şifresi yok.",
+        "ms_btn": "Microsoft ile giriş yap",
+        "ms_hint": "Tıkladıktan sonra yeni sekmede girişi bitir, sonra buraya dön.",
         "setting_labels": {"send_approval": "Göndermeden önce onay",
                            "trash_approval": "Çöp kutusuna taşımadan önce onay"},
         "email": "E-posta adresi", "display_name": "Görünen ad",
@@ -413,6 +421,22 @@ def _render_add(t: dict, token: str, values: dict, error: str | None = None,
 
     # Screen 2: provider-specific numbered steps.
     info = info if looked_up else {}
+    if info.get("auth") == "oauth2":
+        parts = [f'<h1>{_e(t["connect_title"].format(email=v["email"]))}</h1>',
+                 f'<p class="muted"><a href="/add?t={_e(token)}">{_e(t["change_email"])}</a></p>',
+                 f'<p>{_e(t["ms_why"])}</p>']
+        if error:
+            parts.append(f'<div class="err" role="alert">{_e(error)}</div>')
+        parts.append(
+            f'<form method="post" action="/add/microsoft" autocomplete="off">{tok}'
+            f'<input type="hidden" name="email" value="{_e(v["email"])}">'
+            f'<div class="actions"><button class="ok" type="submit">{_e(t["ms_btn"])}</button></div>'
+            f'<p class="muted">{_e(t["ms_hint"])}</p>'
+            f'<details><summary>{_e(t["more"])}</summary>'
+            f'<label for="display_name">{_e(t["display_name"])}</label>'
+            f'<input id="display_name" type="text" name="display_name" value="{_e(v["display_name"])}">'
+            f"</details></form>")
+        return _page(t, t["add_title"], "".join(parts))
     prov_key = str(info.get("provider") or "")
     prov = _PROVIDER_NAMES.get(prov_key, prov_key.capitalize() or "Mail")
     url = str(info.get("app_password_url") or "")
@@ -494,7 +518,24 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     def _t(self) -> dict:
         return _T[_pick_lang(self.headers.get("Accept-Language"))]
 
+    def _drain_unread_body(self) -> None:
+        """Read a small unread request body before replying. Closing a socket with unread data makes
+        Windows send a TCP reset, and the client then loses our error response."""
+        if self.command != "POST" or getattr(self, "_body_done", False):
+            return
+        self._body_done = True
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return
+        if 0 < length <= 1024 * 1024:
+            try:
+                self.rfile.read(length)
+            except OSError:
+                pass
+
     def _send(self, status: int, body: bytes) -> None:
+        self._drain_unread_body()
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -541,12 +582,14 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         if length < 0 or length > MAX_BODY:
             if 0 < length <= 1024 * 1024:  # drain so the client sees the 413, not a reset
                 self.rfile.read(length)
+            self._body_done = True
             self.send_response(413)
             self.send_header("Connection", "close")
             self.send_header("Content-Length", "0")
             self.end_headers()
             return None
         raw = self.rfile.read(length)
+        self._body_done = True
         try:
             parsed = urllib.parse.parse_qs(raw.decode("utf-8"), keep_blank_values=True,
                                            max_num_fields=60)
@@ -580,13 +623,15 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                 return self._msg(403, "forbidden")
             url = urllib.parse.urlsplit(self.path)
             m = _ID_RE.match(url.path)
-            if not m and url.path != "/add":
+            if not m and url.path not in ("/add", "/add/microsoft"):
                 return self._msg(404, "notfound")
             form = self._read_form()
             if form is None:
                 return
             if m:
                 return self._post_action(m.group(1), form)
+            if url.path == "/add/microsoft":
+                return self._post_add_microsoft(form)
             return self._post_add(form)
         except Exception as e:  # noqa: BLE001
             print(f"mailmcp web: POST error {type(e).__name__}", file=sys.stderr)
@@ -649,6 +694,38 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                         values[k] = str(info[k])
         self._send(200, _render_add(t, token, values, info=info))
 
+    def _post_add_microsoft(self, form: dict[str, str]) -> None:
+        t = self._t()
+        token = form.get("t", "")
+        if not self.web._session_valid(token) or self.web.add_oauth is None:
+            return self._msg(403, "forbidden")
+        email = form.get("email", "").strip()[:254]
+        display_name = form.get("display_name", "").strip()[:300]
+        values = {"email": email, "display_name": display_name}
+
+        def redisplay(err: str) -> None:
+            try:
+                info = dict(self.web.lookup(email) or {})
+            except Exception:  # noqa: BLE001
+                info = None
+            self._send(200, _render_add(t, token, values, error=err, info=info))
+
+        if "@" not in email or any(c.isspace() for c in email):
+            return redisplay(t["err_email"])
+        with self.web._add_lock:
+            if not self.web._session_valid(token):
+                return self._msg(403, "forbidden")
+            try:
+                account_id = self.web.add_oauth(email, display_name)
+            except MailMcpError as e:
+                return redisplay(str(e))
+            except Exception as e:  # noqa: BLE001
+                print(f"mailmcp web: add_oauth crashed: {type(e).__name__}", file=sys.stderr)
+                return redisplay(t["err_generic"])
+            self.web._session_consume(token)
+        self.web._added.put(account_id)
+        self._send(200, _render_message(t, t["added_title"], t["added_text"].format(id=account_id)))
+
     def _post_add(self, form: dict[str, str]) -> None:
         t = self._t()
         token = form.get("t", "")
@@ -704,9 +781,11 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
 class LocalWeb:
     def __init__(self, store: ActionStore, add_account: AddAccountHandler, lookup: LookupHandler,
-                 host: str = "127.0.0.1", port: int = 0) -> None:
+                 host: str = "127.0.0.1", port: int = 0,
+                 add_oauth: Callable[[str, str], str] | None = None) -> None:
         self.store = store
         self.add_account = add_account
+        self.add_oauth = add_oauth
         self.lookup = lookup
         self._host = host
         self._req_port = port

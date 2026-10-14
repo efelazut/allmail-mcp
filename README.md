@@ -6,7 +6,7 @@
 
 mailmcp is an [MCP](https://modelcontextprotocol.io) server that connects Claude Code, Codex,
 Cursor, Antigravity, Gemini CLI (any MCP client) to **several mail accounts at once**: Gmail,
-iCloud, Yandex, Zoho, Fastmail, Yahoo, GMX and any IMAP/SMTP provider. Outlook/Hotmail is coming in v0.2.
+iCloud, Yandex, Zoho, Fastmail, Yahoo, GMX and any IMAP/SMTP provider. Outlook/Hotmail/Live connect with "Sign in with Microsoft" (no app password; see [docs/MICROSOFT.md](docs/MICROSOFT.md)).
 
 ```
 "Find the invoices from last week in all my inboxes"
@@ -91,7 +91,7 @@ Ten small tools on purpose: fewer tokens in every session, fewer ways to go wron
 | iCloud | [App-specific password](https://account.apple.com) |
 | Yandex, Zoho, Fastmail, Yahoo, GMX, AOL, Mail.ru | App password |
 | Anything else with IMAP/SMTP | Settings are looked up automatically (built-in table, then Mozilla's autoconfig database) or entered by hand |
-| Outlook / Hotmail / Live | v0.2 |
+| Outlook / Hotmail / Live | Sign in with Microsoft in the browser |
 | Proton | Through Proton Mail Bridge, entered by hand |
 
 ## Commands

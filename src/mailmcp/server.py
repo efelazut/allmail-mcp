@@ -98,6 +98,15 @@ def _fmt_date(d: datetime | None) -> str:
     return d.strftime("%Y-%m-%d %H:%M") if d else "?"
 
 
+def account_secret(acc: Account) -> str:
+    """Keyring app password, or a fresh Microsoft access token for oauth2 accounts."""
+    if getattr(acc, "auth", "basic") == "oauth2":
+        from . import ms_auth
+        return ms_auth.access_token(acc.username)
+    from . import secrets_store
+    return secrets_store.get_password(acc.id)
+
+
 def _same_servers(manual: dict, auto: ServerSettings) -> bool:
     def norm(v):
         return str(v or "").strip().lower()
@@ -121,7 +130,8 @@ class App:
 
     def __init__(self, browser: Callable[[str], bool] = open_in_browser) -> None:
         self.store = ActionStore()
-        self.web = LocalWeb(self.store, self.add_account, self.lookup_settings)
+        self.web = LocalWeb(self.store, self.add_account, self.lookup_settings,
+                            add_oauth=self.add_oauth_account)
         self.browser = browser
         self.store.register_executor("send", self._exec_send)
         self.store.register_executor("trash", self._exec_trash)
@@ -152,6 +162,9 @@ class App:
             if not manual:
                 raise
             auto = None
+        if auto is not None and auto.auth == "oauth2" and not manual:
+            raise MailMcpError(f"{email} signs in with Microsoft, not an app password. "
+                               "Use the 'Sign in with Microsoft' button.")
         # The form pre-fills looked-up settings; unchanged values are not a manual override,
         # so keep the provider's own knowledge (e.g. Gmail stores Sent copies itself).
         # Browsers often autofill the username field with the address itself; that is not an override.
@@ -194,9 +207,36 @@ class App:
         _log(f"account added: {acc_id}")
         return acc_id
 
+    def add_oauth_account(self, email: str, display_name: str) -> str:
+        """Microsoft accounts: browser sign-in, then an IMAP XOAUTH2 login check."""
+        from . import ms_auth
+        assert_secure_backend()
+        email = email.strip()
+        server = lookup(email, allow_network=False)
+        if server is None or server.auth != "oauth2":
+            raise MailMcpError(f"{email} does not use Microsoft sign-in.")
+        cfg = load_config()
+        existing = next((a for a in cfg.accounts.values() if a.email.lower() == email.lower()), None)
+        if existing:
+            raise MailMcpError(f"{email} is already added (id {existing.id}).")
+        username = ms_auth.sign_in(email)
+        test_login(server, username, ms_auth.access_token(username))
+        cfg = load_config()
+        acc_id = make_account_id(email, set(cfg.accounts))
+        cfg.accounts[acc_id] = Account(
+            id=acc_id, email=email, display_name=display_name.strip() or email.split("@")[0],
+            provider=server.provider, imap_host=server.imap_host, imap_port=server.imap_port,
+            imap_security=server.imap_security, smtp_host=server.smtp_host, smtp_port=server.smtp_port,
+            smtp_security=server.smtp_security, username=username, smtp_saves_sent=server.smtp_saves_sent,
+            auth="oauth2",
+        )
+        save_config(cfg)
+        _log(f"account added: {acc_id}")
+        return acc_id
+
     def _account(self, cfg: Config, ref: str) -> tuple[Account, str]:
         acc = cfg.get(ref)
-        return acc, get_password(acc.id)
+        return acc, account_secret(acc)
 
     # --- executors (run only after a human click, or with approval turned off) ---
     def _exec_send(self, action: PendingAction) -> str:
@@ -294,7 +334,7 @@ class App:
         problems: list[str] = []
         for acc in accounts:
             try:
-                with MailBox(acc, get_password(acc.id)) as mb:
+                with MailBox(acc, account_secret(acc)) as mb:
                     results.extend(mb.search(**crit))
             except MailMcpError as e:
                 if account:

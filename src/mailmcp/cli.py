@@ -147,7 +147,11 @@ def _cmd_remove_account(args) -> int:
     cfg.accounts.pop(acct.id, None)
     save_config(cfg)
     try:
-        secrets_store.delete_password(acct.id)
+        if acct.auth == "oauth2":
+            from . import ms_auth
+            ms_auth.sign_out(acct.username)
+        else:
+            secrets_store.delete_password(acct.id)
     except MailMcpError as e:
         _err(f"Account removed from config, but the stored password could not be deleted: {e}")
         return 1
@@ -252,9 +256,9 @@ def _cmd_doctor(_args) -> int:
     for acct in (cfg.accounts.values() if cfg else []):
         password = None
         try:
-            from . import secrets_store
-            password = secrets_store.get_password(acct.id)
-            ok(f"{acct.id}: password found in keyring")
+            from .server import account_secret
+            password = account_secret(acct)
+            ok(f"{acct.id}: {'Microsoft sign-in token is valid' if acct.auth == 'oauth2' else 'password found in keyring'}")
         except NotImplementedError:
             na(f"{acct.id}: keyring password")
         except MailMcpError as e:
@@ -269,7 +273,8 @@ def _cmd_doctor(_args) -> int:
             server = ServerSettings(
                 provider=acct.provider, imap_host=acct.imap_host, imap_port=acct.imap_port,
                 imap_security=acct.imap_security, smtp_host=acct.smtp_host, smtp_port=acct.smtp_port,
-                smtp_security=acct.smtp_security, smtp_saves_sent=acct.smtp_saves_sent, source="manual")
+                smtp_security=acct.smtp_security, smtp_saves_sent=acct.smtp_saves_sent, source="manual",
+                auth=acct.auth)
             test_login(server, acct.username, password)
             ok(f"{acct.id}: IMAP login works ({acct.imap_host})")
         except NotImplementedError:

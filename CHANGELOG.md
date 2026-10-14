@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - Unreleased
+
+### Added
+- Outlook.com / Hotmail / Live accounts: "Sign in with Microsoft" on the add-account page (MSAL
+  browser sign-in, IMAP + SMTP over XOAUTH2, no app password). Tokens are stored in an encrypted
+  cache whose key is in the OS keyring. See docs/MICROSOFT.md.
+
+### Fixed
+- Local pages no longer lose their error response on Windows when a POST is rejected before its
+  body is read (the server drains small bodies first).
+
 ## [0.1.2] - 2026-10-14
 
 ### Changed

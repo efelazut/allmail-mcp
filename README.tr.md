@@ -7,7 +7,7 @@
 mailmcp, Claude Code, Codex, Cursor, Antigravity, Gemini CLI gibi (herhangi bir MCP istemcisi)
 araçları **aynı anda birden fazla posta hesabına** bağlayan bir [MCP](https://modelcontextprotocol.io)
 sunucusudur: Gmail, iCloud, Yandex, Zoho, Fastmail, Yahoo, GMX ve IMAP/SMTP destekleyen her sağlayıcı.
-Outlook/Hotmail v0.2 ile gelecek.
+Outlook/Hotmail/Live hesapları "Microsoft ile giriş yap" ile bağlanır (uygulama şifresi yok).
 
 ```
 "Bütün kutularımda geçen haftanın faturalarını bul"
@@ -94,7 +94,7 @@ Bilerek on küçük araç: her oturumda daha az token, daha az hata payı.
 | iCloud | [Uygulamaya özel şifre](https://account.apple.com) |
 | Yandex, Zoho, Fastmail, Yahoo, GMX, AOL, Mail.ru | Uygulama şifresi |
 | IMAP/SMTP olan diğer her yer | Ayarlar otomatik bulunur (önce yerleşik tablo, sonra Mozilla autoconfig veritabanı) ya da elle girilir |
-| Outlook / Hotmail / Live | v0.2 |
+| Outlook / Hotmail / Live | Tarayıcıda Microsoft ile giriş |
 | Proton | Proton Mail Bridge üzerinden, elle girilir |
 
 ## Komutlar

@@ -42,7 +42,11 @@ def send_message(account: Account, password: str, msg: EmailMessage, timeout: fl
             if security == "starttls":
                 client.starttls(context=ctx)
                 client.ehlo()
-            client.login(account.username, password)
+            if getattr(account, "auth", "basic") == "oauth2":
+                xoauth = f"user={account.username}\x01auth=Bearer {password}\x01\x01"
+                client.auth("XOAUTH2", lambda challenge=None: xoauth, initial_response_ok=True)
+            else:
+                client.login(account.username, password)
             # send_message() strips Bcc from the transmitted headers but still delivers to Bcc.
             client.send_message(msg, from_addr=account.email, to_addrs=recipients)
     except smtplib.SMTPAuthenticationError as exc:
